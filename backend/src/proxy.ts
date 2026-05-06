@@ -121,8 +121,7 @@ export async function proxyRoutes(fastify: FastifyInstance): Promise<void> {
       const body = req.body as Record<string, unknown>;
       const encodedValue = encodeURIComponent(String(body.value ?? ''));
       const res = await fetch(
-        makerUrl(`/hubvariables/${req.params.name}`) + `&value=${encodedValue}`,
-        { method: 'POST' }
+        makerUrl(`/hubvariables/${req.params.name}/${encodedValue}`)
       );
       if (!res.ok) return reply.status(res.status).send({ error: 'Maker API error' });
       return reply.send({ ok: true });

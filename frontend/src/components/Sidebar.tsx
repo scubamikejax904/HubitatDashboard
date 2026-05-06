@@ -91,10 +91,17 @@ export function Sidebar() {
         tileTypeOverrides,
         tileOrder,
       }
+      const json = JSON.stringify(payload)
+      // Gzip + base64 to fit within hub variable's 1024-char limit
+      const compressed = await new Response(
+        new Blob([json]).stream().pipeThrough(new CompressionStream('gzip'))
+      ).arrayBuffer()
+      const value = btoa(String.fromCharCode(...new Uint8Array(compressed)))
+      if (value.length > 1024) throw new Error(`Compressed config is ${value.length} chars — exceeds hub variable limit of 1024. Use File Export instead.`)
       const res = await fetch('/api/hubvariables/BackupConfig', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: JSON.stringify(payload) }),
+        body: JSON.stringify({ value }),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
     } catch (e) {
@@ -112,7 +119,17 @@ export function Sidebar() {
       const vars = await res.json() as Array<{ name: string; value?: string }>
       const entry = vars.find((v) => v.name === 'BackupConfig')
       if (!entry?.value) throw new Error('BackupConfig variable not found or empty')
-      const data = JSON.parse(entry.value) as GroupExportPayload
+      // Try gzip+base64 decompression first; fall back to raw JSON for backwards compat
+      let data: GroupExportPayload
+      try {
+        const bytes = Uint8Array.from(atob(entry.value), (c) => c.charCodeAt(0))
+        const json = await new Response(
+          new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))
+        ).text()
+        data = JSON.parse(json) as GroupExportPayload
+      } catch {
+        data = JSON.parse(entry.value) as GroupExportPayload
+      }
       setPendingImport(data)
       setShowImportConfirm(true)
     } catch (e) {

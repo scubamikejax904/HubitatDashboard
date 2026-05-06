@@ -5,9 +5,7 @@ import com.timshubet.hubitatdashboard.data.model.DeviceState
 import com.timshubet.hubitatdashboard.data.model.HubMode
 import com.timshubet.hubitatdashboard.data.model.HubVariable
 import retrofit2.Response
-import retrofit2.http.Body
 import retrofit2.http.GET
-import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -72,11 +70,11 @@ interface HubitatApiService {
         @Query("access_token") token: String
     ): List<HubVariable>
 
-    @POST("hubvariables/{name}")
+    @GET("hubvariables/{name}/{value}")
     suspend fun setHubVariable(
         @Path("name") name: String,
-        @Query("access_token") token: String,
-        @Body body: Map<String, String>
+        @Path("value", encoded = true) value: String,
+        @Query("access_token") token: String
     ): Response<JsonElement>
 }
 

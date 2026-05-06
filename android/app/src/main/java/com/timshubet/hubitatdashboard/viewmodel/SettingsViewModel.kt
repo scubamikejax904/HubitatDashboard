@@ -8,7 +8,12 @@ import com.timshubet.hubitatdashboard.data.model.ConnectionMode
 import com.timshubet.hubitatdashboard.data.repository.ConnectionResolver
 import com.timshubet.hubitatdashboard.data.repository.SettingsRepository
 import com.timshubet.hubitatdashboard.ui.settings.SettingsUiState
+import android.util.Base64
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.util.zip.GZIPInputStream
+import java.util.zip.GZIPOutputStream
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -127,6 +132,17 @@ class SettingsViewModel @Inject constructor(
     private fun buildDynamicService(baseUrl: String): HubitatApiService =
         retrofit.newBuilder().baseUrl("$baseUrl/").build().create(HubitatApiService::class.java)
 
+    private fun compressToBase64(json: String): String {
+        val baos = ByteArrayOutputStream()
+        GZIPOutputStream(baos).use { it.write(json.toByteArray(Charsets.UTF_8)) }
+        return Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP)
+    }
+
+    private fun decompressFromBase64(encoded: String): String {
+        val bytes = Base64.decode(encoded, Base64.NO_WRAP)
+        return GZIPInputStream(ByteArrayInputStream(bytes)).bufferedReader(Charsets.UTF_8).readText()
+    }
+
     fun pushConfigToHub() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
@@ -134,10 +150,13 @@ class SettingsViewModel @Inject constructor(
                 val baseUrl = connectionResolver.resolveBaseUrl()
                 val service = buildDynamicService(baseUrl)
                 val json = groupExportManager.buildExportJson()
+                val compressed = compressToBase64(json)
+                if (compressed.length > 1024) error("Compressed config is ${compressed.length} chars — exceeds hub variable limit of 1024. Use File Export instead.")
+                val encoded = java.net.URLEncoder.encode(compressed, "UTF-8")
                 service.setHubVariable(
                     name = "BackupConfig",
-                    token = settingsRepository.makerToken,
-                    body = mapOf("value" to json)
+                    value = encoded,
+                    token = settingsRepository.makerToken
                 )
             }.onSuccess {
                 _uiState.update { it.copy(isLoading = false, snackbarMessage = "Config pushed to hub") }
@@ -156,7 +175,9 @@ class SettingsViewModel @Inject constructor(
                 val vars = service.getHubVariables(settingsRepository.makerToken)
                 val value = vars.find { it.name == "BackupConfig" }?.value
                     ?: error("BackupConfig variable not found or empty")
-                groupExportManager.parseImportJson(value).getOrThrow()
+                // Try gzip+base64 first; fall back to raw JSON
+                val json = try { decompressFromBase64(value) } catch (_: Exception) { value }
+                groupExportManager.parseImportJson(json).getOrThrow()
             }.onSuccess { data ->
                 _uiState.update { it.copy(isLoading = false, pendingHubImportData = data) }
             }.onFailure { e ->

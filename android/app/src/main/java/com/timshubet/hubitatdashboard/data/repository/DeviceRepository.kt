@@ -271,7 +271,8 @@ class DeviceRepository @Inject constructor(
     suspend fun setHubVariable(name: String, value: String): Result<Unit> {
         return try {
             val (svc, token, _) = resolvedService()
-            val response = svc.setHubVariable(name, token, mapOf("value" to value))
+            val encoded = java.net.URLEncoder.encode(value, "UTF-8")
+            val response = svc.setHubVariable(name, encoded, token)
             if (response.isSuccessful) {
                 _hubVariables.value = _hubVariables.value.map {
                     if (it.name == name) it.copy(value = value) else it
