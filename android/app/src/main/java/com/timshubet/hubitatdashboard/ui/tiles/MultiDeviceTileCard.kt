@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -26,6 +27,8 @@ import androidx.compose.ui.unit.sp
 import com.timshubet.hubitatdashboard.data.model.DeviceState
 import com.timshubet.hubitatdashboard.data.model.MultiTileConfig
 import com.timshubet.hubitatdashboard.data.model.TileConfig
+
+private val White = Color.White
 
 @Composable
 fun MultiDeviceTileCard(
@@ -50,10 +53,10 @@ fun MultiDeviceTileCard(
         Column(modifier = Modifier.padding(8.dp)) {
             Text(
                 text = label.uppercase(),
-                fontSize = 10.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 0.8.sp,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = White,
                 modifier = Modifier.padding(bottom = 6.dp)
             )
 
@@ -72,7 +75,6 @@ fun MultiDeviceTileCard(
                                 modifier = Modifier.weight(1f)
                             )
                         }
-                        // Fill remaining columns so cells are even-width
                         repeat(cols - rowDevices.size) {
                             Spacer(modifier = Modifier.weight(1f))
                         }
@@ -106,15 +108,15 @@ private fun MiniDeviceCell(
         ) {
             Text(
                 text = device.label,
-                fontSize = 10.sp,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onSurface
+                color = White
             )
 
             when {
                 attrs.containsKey("switch") && attrs.containsKey("level") -> {
-                    // Dimmer
                     val isOn = attrs["switch"] == "on"
                     val level = attrs["level"]?.toString()
                     val btnLabel = if (isOn && level != null) "$level%" else if (isOn) "On" else "Off"
@@ -123,74 +125,69 @@ private fun MiniDeviceCell(
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (isOn) MaterialTheme.colorScheme.tertiary
                                             else MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = if (isOn) MaterialTheme.colorScheme.onTertiary
-                                           else MaterialTheme.colorScheme.onSurfaceVariant
+                            contentColor = White
                         ),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                        modifier = Modifier.height(24.dp)
+                        modifier = Modifier.height(26.dp)
                     ) {
-                        Text(btnLabel, fontSize = 10.sp)
+                        Text(btnLabel, fontSize = 12.sp, color = White)
                     }
                 }
                 attrs.containsKey("switch") -> {
-                    // Switch
                     val isOn = attrs["switch"] == "on"
                     Button(
                         onClick = { onCommand(deviceId, if (isOn) "off" else "on", null) },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (isOn) MaterialTheme.colorScheme.primary
                                             else MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = if (isOn) MaterialTheme.colorScheme.onPrimary
-                                           else MaterialTheme.colorScheme.onSurfaceVariant
+                            contentColor = White
                         ),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                        modifier = Modifier.height(24.dp)
+                        modifier = Modifier.height(26.dp)
                     ) {
-                        Text(if (isOn) "On" else "Off", fontSize = 10.sp)
+                        Text(if (isOn) "On" else "Off", fontSize = 12.sp, color = White)
                     }
                 }
                 attrs.containsKey("temperature") -> {
                     Text(
-                        text = attrs["temperature"]?.let { "$it°" } ?: "—",
-                        fontSize = 12.sp,
+                        text = attrs["temperature"]?.let { "$it" + "°" } ?: "—",
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = White
                     )
                 }
                 attrs.containsKey("contact") -> {
                     val isOpen = attrs["contact"] == "open"
                     Text(
                         text = attrs["contact"]?.let { if (isOpen) "Open" else "Closed" } ?: "—",
-                        fontSize = 10.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = if (isOpen) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                        color = White
                     )
                 }
                 attrs.containsKey("motion") -> {
                     val active = attrs["motion"] == "active"
                     Text(
                         text = attrs["motion"]?.let { if (active) "Active" else "Clear" } ?: "—",
-                        fontSize = 10.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = if (active) MaterialTheme.colorScheme.tertiary
-                                else MaterialTheme.colorScheme.onSurfaceVariant
+                        color = White
                     )
                 }
                 attrs.containsKey("presence") -> {
                     val present = attrs["presence"] == "present"
                     Text(
                         text = attrs["presence"]?.let { if (present) "Home" else "Away" } ?: "—",
-                        fontSize = 10.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = if (present) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurfaceVariant
+                        color = White
                     )
                 }
                 else -> {
                     Text(
                         text = attrs.values.firstOrNull()?.toString() ?: "—",
-                        fontSize = 10.sp,
-                        color = MaterialTheme.colorScheme.onSurface
+                        fontSize = 13.sp,
+                        color = White
                     )
                 }
             }
