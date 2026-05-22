@@ -20,6 +20,9 @@ object TileTokens {
     val RedAlert      = Color(0xFFF44336)   // red-500    — unlocked, armed-away, critical battery
     val PurpleRgb     = Color(0xFF9C27B0)   // purple-500 — RGBW on
 
+    val OffBorder        = Color(0xFF6B7280)   // gray-500  — visible border when switch is OFF
+    val MultiPanelBorder = Color(0xFF6366F1)   // indigo-500 — multi-device panel card border
+
     // --- Neutrals (pill off / muted title / skeleton) ---
     val PillOffBgLight   = Color(0xFFE5E7EB) // gray-200
     val PillOffBgDark    = Color(0xFF374151) // gray-700

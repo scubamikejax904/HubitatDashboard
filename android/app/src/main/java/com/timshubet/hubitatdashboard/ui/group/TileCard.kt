@@ -48,15 +48,15 @@ private fun tileStateInfo(
     return when (tile.tileType) {
         TileType.SWITCH, TileType.CONNECTOR -> {
             val isOn = attrs?.get("switch") == "on"
-            Pair(TileTokens.GreenBorder, isOn)
+            if (isOn) Pair(TileTokens.GreenBorder, true) else Pair(TileTokens.OffBorder, true)
         }
         TileType.DIMMER -> {
             val isOn = attrs?.get("switch") == "on"
-            Pair(TileTokens.AmberActive, isOn)
+            if (isOn) Pair(TileTokens.AmberActive, true) else Pair(TileTokens.OffBorder, true)
         }
         TileType.RGBW -> {
             val isOn = attrs?.get("switch") == "on"
-            Pair(TileTokens.PurpleRgb, isOn)
+            if (isOn) Pair(TileTokens.PurpleRgb, true) else Pair(TileTokens.OffBorder, true)
         }
         TileType.MOTION -> {
             val isActive = attrs?.get("motion") == "active"

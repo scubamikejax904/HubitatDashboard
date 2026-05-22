@@ -1,5 +1,6 @@
 package com.timshubet.hubitatdashboard.ui.tiles
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -14,6 +15,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,8 +29,14 @@ import androidx.compose.ui.unit.sp
 import com.timshubet.hubitatdashboard.data.model.DeviceState
 import com.timshubet.hubitatdashboard.data.model.MultiTileConfig
 import com.timshubet.hubitatdashboard.data.model.TileConfig
+import com.timshubet.hubitatdashboard.ui.theme.TileTokens
 
-private val White = Color.White
+private fun tempColor(temp: Float?): Color = when {
+    temp == null -> Color.White
+    temp < 65f   -> TileTokens.BlueCold
+    temp <= 80f  -> TileTokens.GreenComfort
+    else         -> TileTokens.OrangeHot
+}
 
 @Composable
 fun MultiDeviceTileCard(
@@ -47,6 +55,7 @@ fun MultiDeviceTileCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(2.dp, TileTokens.MultiPanelBorder),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         colors = CardDefaults.cardColors()
     ) {
@@ -56,7 +65,7 @@ fun MultiDeviceTileCard(
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 0.8.sp,
-                color = White,
+                color = Color.White,
                 modifier = Modifier.padding(bottom = 6.dp)
             )
 
@@ -112,82 +121,107 @@ private fun MiniDeviceCell(
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                color = White
+                color = Color.White
             )
 
             when {
                 attrs.containsKey("switch") && attrs.containsKey("level") -> {
+                    // Dimmer
                     val isOn = attrs["switch"] == "on"
                     val level = attrs["level"]?.toString()
                     val btnLabel = if (isOn && level != null) "$level%" else if (isOn) "On" else "Off"
-                    Button(
-                        onClick = { onCommand(deviceId, if (isOn) "off" else "on", null) },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isOn) MaterialTheme.colorScheme.tertiary
-                                            else MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = White
-                        ),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                        modifier = Modifier.height(26.dp)
-                    ) {
-                        Text(btnLabel, fontSize = 12.sp, color = White)
+                    if (isOn) {
+                        Button(
+                            onClick = { onCommand(deviceId, "off", null) },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = TileTokens.AmberActive,
+                                contentColor = Color.Black
+                            ),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                            modifier = Modifier.height(26.dp)
+                        ) {
+                            Text(btnLabel, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = { onCommand(deviceId, "on", null) },
+                            border = BorderStroke(1.5.dp, TileTokens.OffBorder),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                            modifier = Modifier.height(26.dp)
+                        ) {
+                            Text(btnLabel, fontSize = 12.sp)
+                        }
                     }
                 }
                 attrs.containsKey("switch") -> {
+                    // Switch
                     val isOn = attrs["switch"] == "on"
-                    Button(
-                        onClick = { onCommand(deviceId, if (isOn) "off" else "on", null) },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isOn) MaterialTheme.colorScheme.primary
-                                            else MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = White
-                        ),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                        modifier = Modifier.height(26.dp)
-                    ) {
-                        Text(if (isOn) "On" else "Off", fontSize = 12.sp, color = White)
+                    if (isOn) {
+                        Button(
+                            onClick = { onCommand(deviceId, "off", null) },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = TileTokens.GreenOn,
+                                contentColor = Color.White
+                            ),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                            modifier = Modifier.height(26.dp)
+                        ) {
+                            Text("On", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = { onCommand(deviceId, "on", null) },
+                            border = BorderStroke(1.5.dp, TileTokens.OffBorder),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                            modifier = Modifier.height(26.dp)
+                        ) {
+                            Text("Off", fontSize = 12.sp)
+                        }
                     }
                 }
                 attrs.containsKey("temperature") -> {
+                    val t = attrs["temperature"]?.toFloatOrNull()
                     Text(
-                        text = attrs["temperature"]?.let { "$it" + "°" } ?: "—",
+                        text = if (t != null) "$t°" else "—",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = White
+                        color = tempColor(t)
                     )
                 }
                 attrs.containsKey("contact") -> {
                     val isOpen = attrs["contact"] == "open"
                     Text(
-                        text = attrs["contact"]?.let { if (isOpen) "Open" else "Closed" } ?: "—",
+                        text = if (isOpen) "Open" else "Closed",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = White
+                        color = if (isOpen) TileTokens.OrangeHot else TileTokens.GreenOn
                     )
                 }
                 attrs.containsKey("motion") -> {
                     val active = attrs["motion"] == "active"
                     Text(
-                        text = attrs["motion"]?.let { if (active) "Active" else "Clear" } ?: "—",
+                        text = if (active) "Active" else "Clear",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = White
+                        color = if (active) TileTokens.AmberActive else TileTokens.TitleMuted
                     )
                 }
                 attrs.containsKey("presence") -> {
                     val present = attrs["presence"] == "present"
                     Text(
-                        text = attrs["presence"]?.let { if (present) "Home" else "Away" } ?: "—",
+                        text = if (present) "Home" else "Away",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = White
+                        color = if (present) TileTokens.GreenOn else TileTokens.TitleMuted
                     )
                 }
                 else -> {
                     Text(
                         text = attrs.values.firstOrNull()?.toString() ?: "—",
                         fontSize = 13.sp,
-                        color = White
+                        color = Color.White
                     )
                 }
             }

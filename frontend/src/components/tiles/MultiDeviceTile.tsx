@@ -28,7 +28,7 @@ function MiniSwitch({ deviceId, label }: { deviceId: string; label: string }) {
         onClick={toggle}
         disabled={isPending}
         className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all active:scale-95 disabled:opacity-50 ${
-          isOn ? 'bg-green-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+          isOn ? 'bg-green-500 text-white' : 'bg-transparent text-gray-400 dark:text-gray-300 border border-gray-400 dark:border-gray-500'
         }`}
       >
         {isOn ? 'On' : 'Off'}
@@ -51,7 +51,7 @@ function MiniDimmer({ deviceId, label }: { deviceId: string; label: string }) {
         onClick={toggle}
         disabled={isPending}
         className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all active:scale-95 disabled:opacity-50 ${
-          isOn ? 'bg-yellow-400 text-gray-900' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+          isOn ? 'bg-yellow-400 text-gray-900' : 'bg-transparent text-gray-400 dark:text-gray-300 border border-gray-400 dark:border-gray-500'
         }`}
       >
         {isOn && level !== undefined ? `${level}%` : isOn ? 'On' : 'Off'}
@@ -62,10 +62,15 @@ function MiniDimmer({ deviceId, label }: { deviceId: string; label: string }) {
 
 function MiniTemperature({ deviceId, label }: { deviceId: string; label: string }) {
   const temp = useDeviceAttribute(deviceId, 'temperature')
+  const t = temp !== undefined ? parseFloat(String(temp)) : null
+  const colorClass = t === null ? 'text-gray-900 dark:text-gray-100'
+    : t < 65  ? 'text-blue-400'
+    : t <= 80 ? 'text-green-400'
+    :           'text-orange-400'
   return (
     <div className="flex flex-col items-center gap-0.5">
       <p className="text-[10px] text-gray-900 dark:text-white truncate w-full text-center leading-tight">{label}</p>
-      <p className="text-xs font-semibold text-gray-900 dark:text-gray-100">
+      <p className={`text-xs font-semibold ${colorClass}`}>
         {temp !== undefined ? `${temp}°` : '—'}
       </p>
     </div>
@@ -91,7 +96,7 @@ function MiniMotion({ deviceId, label }: { deviceId: string; label: string }) {
   return (
     <div className="flex flex-col items-center gap-0.5">
       <p className="text-[10px] text-gray-900 dark:text-white truncate w-full text-center leading-tight">{label}</p>
-      <span className={`text-[10px] font-semibold ${active ? 'text-blue-500' : 'text-gray-400'}`}>
+      <span className={`text-[10px] font-semibold ${active ? 'text-amber-500' : 'text-gray-400'}`}>
         {motion !== undefined ? (active ? 'Active' : 'Clear') : '—'}
       </span>
     </div>
@@ -257,7 +262,7 @@ export function MultiDeviceTile({ tileId, groupId }: Props) {
   const existingSet = new Set(deviceIds)
 
   return (
-    <div className="rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm bg-white dark:bg-gray-800 p-2">
+    <div className="rounded-xl border-2 border-indigo-400 dark:border-indigo-500 shadow-sm bg-white dark:bg-gray-800 p-2">
       {/* Header */}
       <div className="flex items-center justify-between mb-1.5">
         {editMode && editingLabel ? (
