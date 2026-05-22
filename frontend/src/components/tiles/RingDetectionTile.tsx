@@ -24,7 +24,7 @@ export function RingDetectionTile({ deviceId, label, lrpHubVarName }: Props) {
 
   return (
     <div className={`rounded-xl border p-4 shadow-sm bg-white dark:bg-gray-800 ${isTriggered ? 'border-amber-400' : 'border-gray-200 dark:border-gray-700'}`}>
-      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 truncate mb-2">{label}</p>
+      <p className="text-xs font-medium text-gray-900 dark:text-white truncate mb-2">{label}</p>
       <div className={`flex items-center gap-2 ${isTriggered ? 'text-amber-500' : 'text-gray-400'}`}>
         <Bell size={20} fill={isTriggered ? 'currentColor' : 'none'} />
         <span className="font-semibold text-sm">{isTriggered ? 'Detected!' : 'Clear'}</span>

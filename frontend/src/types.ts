@@ -17,7 +17,7 @@ export type TileType =
   | 'switch' | 'dimmer' | 'rgbw' | 'contact' | 'motion'
   | 'temperature' | 'power-meter' | 'button' | 'lock'
   | 'connector' | 'hub-variable' | 'hsm' | 'mode'
-  | 'ring-detection' | 'presence' | 'battery';
+  | 'ring-detection' | 'presence' | 'battery' | 'sun-times' | 'multi-device';
 
 export interface TileConfig {
   deviceId?: string;
@@ -25,6 +25,13 @@ export interface TileConfig {
   tileType: TileType;
   hubVarName?: string;
   wide?: boolean;
+  multiTileId?: string;
+}
+
+export interface MultiTileConfig {
+  deviceIds: string[];
+  cols: number;
+  label?: string;
 }
 
 export interface GroupConfig {

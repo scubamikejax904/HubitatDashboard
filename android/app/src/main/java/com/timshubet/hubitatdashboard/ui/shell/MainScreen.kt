@@ -29,6 +29,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.timshubet.hubitatdashboard.ui.group.GroupScreen
+import com.timshubet.hubitatdashboard.ui.ring.RingListenerScreen
 import com.timshubet.hubitatdashboard.ui.settings.SettingsScreen
 import com.timshubet.hubitatdashboard.viewmodel.DeviceViewModel
 import com.timshubet.hubitatdashboard.viewmodel.GroupEditViewModel
@@ -91,7 +92,11 @@ fun MainScreen(
 
     val currentGroupLabel = resolvedGroups.find { it.id == currentGroupId }?.displayName
         ?: allDrawerGroups.find { it.id == currentGroupId }?.label
-        ?: if (currentRoute == NavRoutes.SETTINGS) "Settings" else "Hubitat Dashboard"
+        ?: when (currentRoute) {
+            NavRoutes.SETTINGS -> "Settings"
+            NavRoutes.RING_LISTENER -> "Ring Listener"
+            else -> "Hubitat Dashboard"
+        }
 
     // Breadcrumb: find if current group is a child of another group
     val parentGroupId = customGroups.find { it.id == currentGroupId }?.parentId
@@ -129,7 +134,7 @@ fun MainScreen(
                 )
             },
             bottomBar = {
-                if (currentRoute != NavRoutes.SETTINGS) {
+                if (currentRoute != NavRoutes.SETTINGS && currentRoute != NavRoutes.RING_LISTENER) {
                     GroupBottomNav(
                         currentGroupId = currentGroupId,
                         onGroupSelected = { navController.navigate(NavRoutes.group(it)) },
@@ -157,7 +162,15 @@ fun MainScreen(
                                     navController.navigate(NavRoutes.group(defaultGroupId)) {
                                         popUpTo(NavRoutes.SETTINGS) { inclusive = true }
                                     }
+                                },
+                                onRingListenerClick = {
+                                    navController.navigate(NavRoutes.RING_LISTENER)
                                 }
+                            )
+                        }
+                        composable(NavRoutes.RING_LISTENER) {
+                            RingListenerScreen(
+                                onNavigateBack = { navController.popBackStack() }
                             )
                         }
                         composable(NavRoutes.GROUP_PATTERN) { backStackEntry ->

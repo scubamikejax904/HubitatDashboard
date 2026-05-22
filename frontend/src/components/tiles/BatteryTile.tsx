@@ -16,7 +16,7 @@ export function BatteryTile({ deviceId, label }: Props) {
   if (raw === undefined) {
     return (
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-sm">
-        <p className="text-xs font-medium text-gray-400 dark:text-gray-500 truncate mb-3">{label}</p>
+        <p className="text-xs font-medium text-gray-900 dark:text-white truncate mb-3">{label}</p>
         <div className="animate-pulse h-8 bg-gray-200 dark:bg-gray-700 rounded" />
       </div>
     )
@@ -27,7 +27,7 @@ export function BatteryTile({ deviceId, label }: Props) {
 
   return (
     <div className={`rounded-xl border p-4 shadow-sm bg-white dark:bg-gray-800 ${border}`}>
-      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 truncate mb-2">{label}</p>
+      <p className="text-xs font-medium text-gray-900 dark:text-white truncate mb-2">{label}</p>
       <div className={`flex items-center gap-2 ${color}`}>
         <Icon size={24} />
         <span className="text-2xl font-bold">{pct}</span>

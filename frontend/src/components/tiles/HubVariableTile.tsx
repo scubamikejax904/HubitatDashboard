@@ -45,7 +45,7 @@ export function HubVariableTile({ hubVarName, label }: Props) {
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm bg-white dark:bg-gray-800">
       <div className="flex items-center justify-between mb-1">
-        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 truncate">{label}</p>
+        <p className="text-xs font-medium text-gray-900 dark:text-white truncate">{label}</p>
         {!editing && !isReadOnly && (
           <button onClick={startEdit} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400" aria-label="Edit">
             <Pencil size={12} />

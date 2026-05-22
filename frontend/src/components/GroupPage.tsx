@@ -27,6 +27,8 @@ import { ModeTile } from './tiles/ModeTile'
 import { RingDetectionTile } from './tiles/RingDetectionTile'
 import { PresenceTile } from './tiles/PresenceTile'
 import { BatteryTile } from './tiles/BatteryTile'
+import { SunTimesTile } from './tiles/SunTimesTile'
+import { MultiDeviceTile } from './tiles/MultiDeviceTile'
 
 interface Props {
   groupId: string
@@ -73,6 +75,7 @@ const PINNED_TYPES = new Set(['hsm'])
 const SPECIAL_TILE_MAP: Record<string, TileConfig> = {
   '__mode__':    { tileType: 'mode'         as TileType, label: 'Hub Mode' },
   '__hsm__':     { tileType: 'hsm'          as TileType, label: 'Hub Security Manager' },
+  '__suntimes__': { tileType: 'sun-times'   as TileType, label: 'Sun Times' },
   '__sunrise__': { tileType: 'hub-variable' as TileType, label: 'Sunrise', hubVarName: 'Sunrise' },
   '__sunset__':  { tileType: 'hub-variable' as TileType, label: 'Sunset',  hubVarName: 'Sunset'  },
   '__civildusk__': { tileType: 'hub-variable' as TileType, label: 'Civil Dusk', hubVarName: 'CivilDusk' },
@@ -91,6 +94,7 @@ function getSyntheticId(tile: TileConfig): string | undefined {
 function tileOrderId(tile: TileConfig): string {
   if (tile.deviceId) return tile.deviceId
   if (tile.tileType === 'hub-variable') return `hub-variable-${tile.hubVarName ?? ''}`
+  if (tile.tileType === 'multi-device' && tile.multiTileId) return tile.multiTileId
   return tile.tileType
 }
 
@@ -152,7 +156,7 @@ function tileKey(tile: TileConfig, fallback: string): string {
   return tile.tileType ?? fallback
 }
 
-function renderTile(tile: TileConfig) {
+function renderTile(tile: TileConfig, groupId?: string) {
   const id = tileKey(tile, tile.tileType ?? 'tile')
   const base = { deviceId: tile.deviceId ?? '', label: tile.label, hubVarName: tile.hubVarName }
   switch (tile.tileType) {
@@ -172,6 +176,8 @@ function renderTile(tile: TileConfig) {
     case 'ring-detection': return <RingDetectionTile key={id} deviceId={tile.deviceId ?? ''} label={tile.label} lrpHubVarName={tile.hubVarName ?? ''} />
     case 'presence':       return <PresenceTile key={id} {...base} />
     case 'battery':        return <BatteryTile key={id} {...base} />
+    case 'sun-times':      return <SunTimesTile key="sun-times" />
+    case 'multi-device':   return <MultiDeviceTile key={tile.multiTileId ?? id} tileId={tile.multiTileId ?? ''} groupId={groupId ?? ''} />
     default:               return null
   }
 }
@@ -208,6 +214,7 @@ function EditOverlay({
   const addDeviceToGroup         = useGroupStore((s) => s.addDeviceToGroup)
   const removeFn                 = useGroupStore((s) => s.removeDeviceFromGroup)
   const removeFromGroupAdditions = useGroupStore((s) => s.removeFromGroupAdditions)
+  const removeMultiTile          = useGroupStore((s) => s.removeMultiTile)
   const groupAdditions           = useGroupStore((s) => s.groupAdditions)
   const setTileTypeOverride      = useGroupStore((s) => s.setTileTypeOverride)
   const tileTypeOverrides        = useGroupStore((s) => s.tileTypeOverrides)
@@ -215,6 +222,25 @@ function EditOverlay({
 
   const deviceId = tile.deviceId
   if (!deviceId) {
+    // Multi-device panel tile — remove via removeMultiTile
+    if (tile.tileType === 'multi-device' && tile.multiTileId) {
+      const tileId = tile.multiTileId
+      return (
+        <div className="absolute inset-0 rounded-xl bg-black/70 z-10 flex flex-col p-1.5 gap-1">
+          <p className="text-white font-semibold text-[11px] text-center leading-tight truncate flex-shrink-0 overflow-hidden">
+            {tile.label}
+          </p>
+          <div className="flex gap-1 flex-wrap justify-center items-center flex-1">
+            <button
+              onClick={() => { removeMultiTile(groupId, tileId); showToast('Removed from group') }}
+              className="flex items-center gap-0.5 px-1.5 py-1 text-[11px] bg-red-600 hover:bg-red-500 text-white rounded-md font-medium"
+            >
+              <X size={10} /> Remove
+            </button>
+          </div>
+        </div>
+      )
+    }
     // Special tile (no real device) — show remove button if it was added via groupAdditions
     const syntheticId = getSyntheticId(tile)
     const isInAdditions = !!syntheticId && (groupAdditions[groupId] ?? []).includes(syntheticId)
@@ -438,8 +464,8 @@ function TileWrapper({
       onDrop={isDraggable ? dragHandlers!.onDrop : undefined}
       onDragEnd={isDraggable ? dragHandlers!.onDragEnd : undefined}
     >
-      {renderTile(effectiveTile)}
-      {editMode && <EditOverlay tile={effectiveTile} groupId={groupId} isOther={isOther} />}
+      {renderTile(effectiveTile, groupId)}
+      {editMode && effectiveTile.tileType !== 'multi-device' && <EditOverlay tile={effectiveTile} groupId={groupId} isOther={isOther} />}
       {isDraggable && (
         <div className="absolute top-1.5 left-1/2 -translate-x-1/2 z-20 text-white/50 pointer-events-none">
           <GripVertical size={12} />
@@ -530,6 +556,12 @@ function StaticGroupPage({ groupId }: Props) {
   const tileTypeOverrides = useGroupStore((s) => s.tileTypeOverrides)
   const tileOrder         = useGroupStore((s) => s.tileOrder)
   const setTileOrder      = useGroupStore((s) => s.setTileOrder)
+  const addMultiTile      = useGroupStore((s) => s.addMultiTile)
+
+  const handleAddMultiTile = () => {
+    const tileId = `__multi-${Date.now()}__`
+    addMultiTile(groupId, tileId, { deviceIds: [], cols: 2 })
+  }
 
   const staticGroup = staticGroups.find((g) => g.id === groupId)
   if (!staticGroup) {
@@ -552,6 +584,7 @@ function StaticGroupPage({ groupId }: Props) {
     .filter((id) => !baseTileDeviceIds.has(id))
     .flatMap((id) => {
       if (id in SPECIAL_TILE_MAP) return [SPECIAL_TILE_MAP[id]]
+      if (id.startsWith('__multi-')) return [{ tileType: 'multi-device' as TileType, label: 'Panel', multiTileId: id }]
       const device = devices[id]
       if (!device) return []
       return [{ deviceId: id, label: device.label, tileType: (tileTypeOverrides[groupId] ?? {})[id] ?? staticTileTypeByDeviceId[id] ?? autoTileType(device), hubVarName: staticHubVarByDeviceId[id] } as TileConfig]
@@ -635,6 +668,7 @@ function StaticGroupPage({ groupId }: Props) {
           groupId={groupId}
           currentDeviceIds={currentDeviceIds}
           onClose={() => setShowAddDevice(false)}
+          onAddMultiTile={handleAddMultiTile}
         />
       )}
     </div>
@@ -661,6 +695,12 @@ function CustomGroupPage({ groupId }: Props) {
   const moveSubGroupDown  = useGroupStore((s) => s.moveSubGroupDown)
   const tileOrder         = useGroupStore((s) => s.tileOrder)
   const setTileOrder      = useGroupStore((s) => s.setTileOrder)
+  const addMultiTile      = useGroupStore((s) => s.addMultiTile)
+
+  const handleAddMultiTile = () => {
+    const tileId = `__multi-${Date.now()}__`
+    addMultiTile(groupId, tileId, { deviceIds: [], cols: 2 })
+  }
 
   const customGroup = customGroups.find((g) => g.id === groupId)
   if (!customGroup) {
@@ -684,6 +724,7 @@ function CustomGroupPage({ groupId }: Props) {
   const addedIds = groupAdditions[groupId] ?? []
   const tiles: TileConfig[] = addedIds.flatMap((id) => {
     if (id in SPECIAL_TILE_MAP) return [SPECIAL_TILE_MAP[id]]
+    if (id.startsWith('__multi-')) return [{ tileType: 'multi-device' as TileType, label: 'Panel', multiTileId: id }]
     const device = devices[id]
     if (!device) return []
     return [{ deviceId: id, label: device.label, tileType: (tileTypeOverrides[groupId] ?? {})[id] ?? staticTileTypeByDeviceId[id] ?? autoTileType(device), hubVarName: staticHubVarByDeviceId[id] } as TileConfig]
@@ -871,6 +912,7 @@ function CustomGroupPage({ groupId }: Props) {
           groupId={groupId}
           currentDeviceIds={currentDeviceIds}
           onClose={() => setShowAddDevice(false)}
+          onAddMultiTile={handleAddMultiTile}
         />
       )}
       {showAddSubGroup && (

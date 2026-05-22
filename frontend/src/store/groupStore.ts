@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { groups as staticGroups } from '../config/groups'
-import type { TileType } from '../types'
+import type { TileType, MultiTileConfig } from '../types'
 
 /** Canonical JSON shape shared with the Android app */
 export interface GroupExportPayload {
@@ -14,6 +14,7 @@ export interface GroupExportPayload {
   /** v2: groupId → deviceId → typeString; v1 (legacy): deviceId → typeString */
   tileTypeOverrides: Record<string, Record<string, string>> | Record<string, string>
   tileOrder: Record<string, string[]>
+  multiTileConfigs: Record<string, MultiTileConfig>
 }
 
 export interface CustomGroup {
@@ -39,6 +40,8 @@ interface GroupStore {
   tileTypeOverrides: Record<string, Record<string, TileType>>
   /** Per-group custom tile order — maps groupId to ordered list of tile IDs (deviceId or tileType). */
   tileOrder: Record<string, string[]>
+  /** Config for multi-device panel tiles, keyed by synthetic tile ID (__multi-<ts>__). */
+  multiTileConfigs: Record<string, MultiTileConfig>
 
   addCustomGroup: (group: CustomGroup, parentId?: string) => void
   removeCustomGroup: (id: string) => void
@@ -53,6 +56,16 @@ interface GroupStore {
   moveSubGroupDown: (parentId: string, id: string) => void
   setTileTypeOverride: (groupId: string, deviceId: string, tileType: TileType) => void
   setTileOrder: (groupId: string, orderedIds: string[]) => void
+  /** Creates a new multi-device panel tile in a group. */
+  addMultiTile: (groupId: string, tileId: string, config: MultiTileConfig) => void
+  /** Updates cols (and/or deviceIds) for an existing multi-tile. */
+  updateMultiTileConfig: (tileId: string, patch: Partial<MultiTileConfig>) => void
+  /** Adds a device to a multi-tile's device list. */
+  addDeviceToMultiTile: (tileId: string, deviceId: string) => void
+  /** Removes a device from a multi-tile's device list. */
+  removeDeviceFromMultiTile: (tileId: string, deviceId: string) => void
+  /** Removes a multi-tile config and its groupAdditions entry. */
+  removeMultiTile: (groupId: string, tileId: string) => void
   /** Replaces all dynamic config with imported data. Static group IDs are preserved in groupOrder. */
   importState: (data: GroupExportPayload) => void
 }
@@ -127,6 +140,7 @@ export const useGroupStore = create<GroupStore>()(
       childGroupOrder: {},
       tileTypeOverrides: {},
       tileOrder: {},
+      multiTileConfigs: {},
 
       addCustomGroup: (group, parentId) =>
         set((s) => {
@@ -266,6 +280,59 @@ export const useGroupStore = create<GroupStore>()(
       setTileOrder: (groupId, orderedIds) =>
         set((s) => ({ tileOrder: { ...s.tileOrder, [groupId]: orderedIds } })),
 
+      addMultiTile: (groupId, tileId, config) =>
+        set((s) => ({
+          multiTileConfigs: { ...s.multiTileConfigs, [tileId]: config },
+          groupAdditions: {
+            ...s.groupAdditions,
+            [groupId]: [...(s.groupAdditions[groupId] ?? []), tileId],
+          },
+        })),
+
+      updateMultiTileConfig: (tileId, patch) =>
+        set((s) => ({
+          multiTileConfigs: {
+            ...s.multiTileConfigs,
+            [tileId]: { ...(s.multiTileConfigs[tileId] ?? { deviceIds: [], cols: 2 }), ...patch },
+          },
+        })),
+
+      addDeviceToMultiTile: (tileId, deviceId) =>
+        set((s) => {
+          const cfg = s.multiTileConfigs[tileId]
+          if (!cfg || cfg.deviceIds.includes(deviceId)) return {}
+          return {
+            multiTileConfigs: {
+              ...s.multiTileConfigs,
+              [tileId]: { ...cfg, deviceIds: [...cfg.deviceIds, deviceId] },
+            },
+          }
+        }),
+
+      removeDeviceFromMultiTile: (tileId, deviceId) =>
+        set((s) => {
+          const cfg = s.multiTileConfigs[tileId]
+          if (!cfg) return {}
+          return {
+            multiTileConfigs: {
+              ...s.multiTileConfigs,
+              [tileId]: { ...cfg, deviceIds: cfg.deviceIds.filter((id) => id !== deviceId) },
+            },
+          }
+        }),
+
+      removeMultiTile: (groupId, tileId) =>
+        set((s) => {
+          const { [tileId]: _removed, ...rest } = s.multiTileConfigs
+          return {
+            multiTileConfigs: rest,
+            groupAdditions: {
+              ...s.groupAdditions,
+              [groupId]: (s.groupAdditions[groupId] ?? []).filter((id) => id !== tileId),
+            },
+          }
+        }),
+
       importState: (data) =>
         set(() => {
           // Preserve static group IDs not present in the import
@@ -293,6 +360,7 @@ export const useGroupStore = create<GroupStore>()(
             childGroupOrder:   data.childGroupOrder,
             tileTypeOverrides,
             tileOrder:         data.tileOrder,
+            multiTileConfigs:  (data as GroupExportPayload & { multiTileConfigs?: Record<string, MultiTileConfig> }).multiTileConfigs ?? {},
           }
         }),
     }),
@@ -323,7 +391,7 @@ export const useGroupStore = create<GroupStore>()(
           }
         }
 
-        return { ...current, ...stored, groupOrder: merged, tileTypeOverrides }
+        return { ...current, ...stored, groupOrder: merged, tileTypeOverrides, multiTileConfigs: stored.multiTileConfigs ?? {} }
       },
     },
   ),

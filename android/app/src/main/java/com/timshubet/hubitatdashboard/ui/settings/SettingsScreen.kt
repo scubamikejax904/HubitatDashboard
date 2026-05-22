@@ -25,6 +25,7 @@ import com.timshubet.hubitatdashboard.viewmodel.SettingsViewModel
 @Composable
 fun SettingsScreen(
     onSaveSuccess: () -> Unit,
+    onRingListenerClick: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -238,6 +239,13 @@ fun SettingsScreen(
                     enabled = !uiState.isLoading
                 ) { Text("Pull from Hub") }
             }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+            OutlinedButton(
+                onClick = onRingListenerClick,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Ring Listener →") }
         }
     }
 

@@ -39,6 +39,7 @@ export function Sidebar() {
   const childGroupOrder = useGroupStore((s) => s.childGroupOrder)
   const tileTypeOverrides = useGroupStore((s) => s.tileTypeOverrides)
   const tileOrder       = useGroupStore((s) => s.tileOrder)
+  const multiTileConfigs = useGroupStore((s) => s.multiTileConfigs)
   const moveGroupUp    = useGroupStore((s) => s.moveGroupUp)
   const moveGroupDown  = useGroupStore((s) => s.moveGroupDown)
   const addCustomGroup = useGroupStore((s) => s.addCustomGroup)
@@ -56,6 +57,7 @@ export function Sidebar() {
       childGroupOrder,
       tileTypeOverrides,
       tileOrder,
+      multiTileConfigs,
     }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -93,6 +95,7 @@ export function Sidebar() {
         childGroupOrder,
         tileTypeOverrides,
         tileOrder,
+        multiTileConfigs,
       }
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       if (hubUsername) headers['X-Hub-Username'] = hubUsername

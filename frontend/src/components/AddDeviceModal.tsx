@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Search, X, Clock, ShieldCheck, Sun } from 'lucide-react'
+import { Search, X, Clock, ShieldCheck, Sun, Sunrise } from 'lucide-react'
 import { useDeviceStore } from '../store/deviceStore'
 import { useGroupStore } from '../store/groupStore'
 import { autoTileType } from '../utils/autoTileType'
@@ -9,12 +9,16 @@ interface Props {
   /** Device IDs already rendered in this group — excluded from the picker. */
   currentDeviceIds: Set<string>
   onClose: () => void
+  /** Called when user picks "Multi Device Panel" — GroupPage creates the tile. */
+  onAddMultiTile?: () => void
 }
 
 /** Synthetic IDs for non-device special tiles */
 export const SPECIAL_TILES = [
   { id: '__mode__',    label: 'Hub Mode',            Icon: Clock,       tileType: 'mode'         },
   { id: '__hsm__',     label: 'Hub Security Manager', Icon: ShieldCheck, tileType: 'hsm'          },
+  { id: '__suntimes__', label: 'Sun Times',           Icon: Sunrise,     tileType: 'sun-times'    },
+  { id: '__multi-new__', label: 'Multi Device Panel', Icon: Sunrise,     tileType: 'multi-device' },
   { id: '__sunrise__', label: 'Sunrise',              Icon: Sun,         tileType: 'hub-variable' },
   { id: '__sunset__',  label: 'Sunset',               Icon: Sun,         tileType: 'hub-variable' },
   { id: '__civildusk__', label: 'Civil Dusk',         Icon: Sun,         tileType: 'hub-variable' },
@@ -22,7 +26,7 @@ export const SPECIAL_TILES = [
   { id: '__weatherreport__',    label: 'Weather Report',  Icon: Sun,         tileType: 'hub-variable' },
 ] as const
 
-export function AddDeviceModal({ groupId, currentDeviceIds, onClose }: Props) {
+export function AddDeviceModal({ groupId, currentDeviceIds, onClose, onAddMultiTile }: Props) {
   const [query, setQuery] = useState('')
   const devices          = useDeviceStore((s) => s.devices)
   const addDeviceToGroup = useGroupStore((s) => s.addDeviceToGroup)
@@ -36,6 +40,11 @@ export function AddDeviceModal({ groupId, currentDeviceIds, onClose }: Props) {
   }, [devices, currentDeviceIds, query])
 
   const handleAdd = (deviceId: string) => {
+    if (deviceId === '__multi-new__') {
+      onAddMultiTile?.()
+      onClose()
+      return
+    }
     addDeviceToGroup(groupId, deviceId)
     onClose()
   }

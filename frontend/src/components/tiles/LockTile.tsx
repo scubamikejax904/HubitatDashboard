@@ -40,7 +40,7 @@ export function LockTile({ deviceId, label }: Props) {
 
   const header = (
     <div className="flex items-center gap-2 min-w-0">
-      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 truncate flex-1">{label}</p>
+      <p className="text-xs font-medium text-gray-900 dark:text-white truncate flex-1">{label}</p>
       <div className={`flex items-center gap-1 flex-shrink-0 ${isLocked ? 'text-green-500' : 'text-red-500'}`}>
         {isLocked ? <Lock size={14} /> : <Unlock size={14} />}
         <span className="text-xs font-semibold">{lockState === undefined ? '—' : isLocked ? 'Locked' : 'Unlocked'}</span>

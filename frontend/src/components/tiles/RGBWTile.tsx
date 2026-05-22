@@ -46,7 +46,7 @@ export function RGBWTile({ deviceId, label }: Props) {
 
   const header = (
     <div className="flex items-center gap-2 min-w-0">
-      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 truncate flex-1">{label}</p>
+      <p className="text-xs font-medium text-gray-900 dark:text-white truncate flex-1">{label}</p>
       <div className="w-4 h-4 rounded-full border border-gray-300 flex-shrink-0" style={{ backgroundColor: swatchColor }} />
       <button
         onClick={(e) => { e.stopPropagation(); execute({ deviceId, command: isOn ? 'off' : 'on', optimisticAttribute: 'switch', optimisticValue: isOn ? 'off' : 'on' }) }}

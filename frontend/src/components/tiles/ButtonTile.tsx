@@ -18,7 +18,7 @@ export function ButtonTile({ deviceId, label }: Props) {
 
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm bg-white dark:bg-gray-800">
-      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 truncate mb-3">{label}</p>
+      <p className="text-xs font-medium text-gray-900 dark:text-white truncate mb-3">{label}</p>
       <button
         onClick={handlePush}
         disabled={isPending}
