@@ -44,6 +44,6 @@ class RingListenerRepository @Inject constructor() {
     }
 
     companion object {
-        private const val MAX_EVENTS = 50
+        private const val MAX_EVENTS = 200
     }
 }

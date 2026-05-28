@@ -4,6 +4,7 @@ import { Shield, ShieldOff, Moon, Clock, Wifi, WifiOff, RefreshCw, Settings, Men
 import { useHsmStatus, useCurrentMode, useConnectionStatus, useDeviceStore } from '../store/deviceStore'
 import { useCommand } from '../hooks/useCommand'
 import { SettingsModal } from './SettingsModal'
+import { LogViewerModal } from './LogViewerModal'
 
 function HsmBadge() {
   const status = useHsmStatus()
@@ -90,6 +91,7 @@ function ConnectorBadge({ deviceId, label }: { deviceId: string; label: string }
 export function SystemBar() {
   const setSidebarOpen = useDeviceStore((s) => s.setSidebarOpen)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [logModal, setLogModal] = useState<'ring' | 'hubitat' | null>(null)
 
   return (
     <>
@@ -113,6 +115,18 @@ export function SystemBar() {
           <ConnectorBadge deviceId="1316" label="Holiday" />
         </div>
         <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => setLogModal('ring')}
+            className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+          >
+            Ring Log
+          </button>
+          <button
+            onClick={() => setLogModal('hubitat')}
+            className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+          >
+            Hub Log
+          </button>
           <Link to="/group/system" className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
             System
           </Link>
@@ -126,6 +140,9 @@ export function SystemBar() {
         </div>
       </header>
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      {logModal !== null && (
+        <LogViewerModal logType={logModal} onClose={() => setLogModal(null)} />
+      )}
     </>
   )
 }
