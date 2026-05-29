@@ -457,7 +457,7 @@ function TileWrapper({
 
   return (
     <div
-      className={`relative${(PINNED_TYPES.has(tile.tileType) || tile.wide) ? ' col-span-2' : ''}${dragHandlers?.isDragOver ? ' ring-2 ring-blue-400 rounded-xl' : ''}${dragHandlers?.isDragging ? ' opacity-40' : ''}`}
+      className={`break-inside-avoid mb-3 relative${PINNED_TYPES.has(tile.tileType) ? ' col-span-2' : tile.wide ? ' [column-span:all]' : ''}${dragHandlers?.isDragOver ? ' ring-2 ring-blue-400 rounded-xl' : ''}${dragHandlers?.isDragging ? ' opacity-40' : ''}`}
       draggable={isDraggable || undefined}
       onDragStart={isDraggable ? dragHandlers!.onDragStart : undefined}
       onDragOver={isDraggable ? dragHandlers!.onDragOver : undefined}
@@ -530,13 +530,11 @@ function OtherGroupPage() {
         editMode={editMode}
         onToggleEdit={() => setEditMode((v) => !v)}
       />
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+      <div className="columns-2 sm:columns-3 lg:columns-4 xl:columns-5 gap-3">
         {tilesOrNull.map((tile, i) =>
           tile ? (
             <TileWrapper key={tile.deviceId ?? `tile-${i}`} tile={tile} groupId="other" isOther={true} editMode={editMode} index={i} />
-          ) : (
-            <div key={`empty-${i}`} aria-hidden="true" />
-          ),
+          ) : null,
         )}
       </div>
     </div>
@@ -645,7 +643,7 @@ function StaticGroupPage({ groupId }: Props) {
         </div>
       )}
       {tilesForGrid.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+        <div className="columns-2 sm:columns-3 lg:columns-4 xl:columns-5 gap-3">
           {tilesForGrid.map((tile, i) =>
             tile ? (
               <TileWrapper
@@ -657,9 +655,7 @@ function StaticGroupPage({ groupId }: Props) {
                 index={i}
                 dragHandlers={editMode ? makeDragHandlers(tile) : undefined}
               />
-            ) : (
-              <div key={`empty-${i}`} aria-hidden="true" />
-            ),
+            ) : null,
           )}
         </div>
       )}
@@ -808,7 +804,7 @@ function CustomGroupPage({ groupId }: Props) {
               Devices
             </p>
           )}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+          <div className="columns-2 sm:columns-3 lg:columns-4 xl:columns-5 gap-3">
             {tilesForGrid.map((tile, i) =>
               tile ? (
                 <TileWrapper
@@ -820,9 +816,7 @@ function CustomGroupPage({ groupId }: Props) {
                   index={i}
                   dragHandlers={editMode ? makeDragHandlers(tile) : undefined}
                 />
-              ) : (
-                <div key={`empty-${i}`} aria-hidden="true" />
-              ),
+              ) : null,
             )}
           </div>
         </div>

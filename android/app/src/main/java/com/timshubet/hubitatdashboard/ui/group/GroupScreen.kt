@@ -13,10 +13,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
+import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
@@ -203,11 +203,11 @@ fun GroupScreen(
                         val tileMap = group.tiles.associateBy { tileKey(it) }
                         dragState.keys.mapNotNull { tileMap[it] }
                     }
-                    LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = TileTokens.GridMinTile),
+                    LazyVerticalStaggeredGrid(
+                        columns = StaggeredGridCells.Adaptive(minSize = TileTokens.GridMinTile),
                         contentPadding = PaddingValues(TileTokens.GridGap),
                         horizontalArrangement = Arrangement.spacedBy(TileTokens.GridGap),
-                        verticalArrangement = Arrangement.spacedBy(TileTokens.GridGap)
+                        verticalItemSpacing = TileTokens.GridGap
                     ) {
                         items(
                             items = orderedTiles,
@@ -215,9 +215,9 @@ fun GroupScreen(
                             span = { tile ->
                                 if (tile.tileType == TileType.MODE || tile.tileType == TileType.HSM ||
                                     tile.tileType == TileType.MULTI_DEVICE) {
-                                    GridItemSpan(maxLineSpan)
+                                    StaggeredGridItemSpan.FullLine
                                 } else {
-                                    GridItemSpan(1)
+                                    StaggeredGridItemSpan.SingleLane
                                 }
                             }
                         ) { tile ->
