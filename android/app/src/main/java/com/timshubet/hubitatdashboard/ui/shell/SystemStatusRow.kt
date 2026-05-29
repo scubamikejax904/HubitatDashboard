@@ -6,6 +6,9 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.Router
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Security
@@ -28,6 +31,8 @@ import com.timshubet.hubitatdashboard.data.model.ConnectionStatus
 import com.timshubet.hubitatdashboard.data.model.ConnectionType
 import com.timshubet.hubitatdashboard.data.model.HsmMode
 import com.timshubet.hubitatdashboard.viewmodel.DeviceViewModel
+import com.timshubet.hubitatdashboard.viewmodel.HubitatNotificationViewModel
+import com.timshubet.hubitatdashboard.viewmodel.RingListenerViewModel
 
 // Connector switches shown in the system status bar
 private data class ConnectorChipConfig(val deviceId: String, val label: String)
@@ -60,7 +65,15 @@ private fun hsmColor(mode: HsmMode): Color = when (mode) {
 }
 
 @Composable
-fun SystemStatusRow(viewModel: DeviceViewModel, modifier: Modifier = Modifier) {
+fun SystemStatusRow(
+    viewModel: DeviceViewModel,
+    modifier: Modifier = Modifier,
+    ringListenerViewModel: RingListenerViewModel? = null,
+    onRingListenerClick: (() -> Unit)? = null,
+    hubitatNotificationViewModel: HubitatNotificationViewModel? = null,
+    onHubitatListenerClick: (() -> Unit)? = null,
+    onLogsClick: (() -> Unit)? = null
+) {
     val hsmStatus by viewModel.hsmStatus.collectAsState()
     val modes by viewModel.modes.collectAsState()
     val connectionStatus by viewModel.connectionStatus.collectAsState()
@@ -70,6 +83,12 @@ fun SystemStatusRow(viewModel: DeviceViewModel, modifier: Modifier = Modifier) {
 
     val activeMode = modes.firstOrNull { it.active }
 
+    val ringPermissionGranted = ringListenerViewModel?.permissionGranted?.collectAsState()?.value
+    val ringServiceConnected = ringListenerViewModel?.serviceConnected?.collectAsState()?.value
+
+    val hubitatPermissionGranted = hubitatNotificationViewModel?.permissionGranted?.collectAsState()?.value
+    val hubitatServiceConnected = hubitatNotificationViewModel?.serviceConnected?.collectAsState()?.value
+
     Surface(
         shadowElevation = 2.dp,
         modifier = modifier
@@ -78,6 +97,70 @@ fun SystemStatusRow(viewModel: DeviceViewModel, modifier: Modifier = Modifier) {
             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
+            // Ring Listener chip (first)
+            if (ringListenerViewModel != null && onRingListenerClick != null) {
+                item {
+                    val (ringIcon, ringLabel, ringColor) = when {
+                        ringPermissionGranted == true && ringServiceConnected == true ->
+                            Triple(Icons.Default.NotificationsActive, "Ring ●", ColorConnected)
+                        ringPermissionGranted == true ->
+                            Triple(Icons.Default.NotificationsActive, "Ring ○", ColorReconnecting)
+                        else ->
+                            Triple(Icons.Default.NotificationsOff, "Ring !", ColorArmedAway)
+                    }
+                    AssistChip(
+                        onClick = onRingListenerClick,
+                        label = { Text(ringLabel, style = MaterialTheme.typography.labelSmall) },
+                        leadingIcon = {
+                            Icon(ringIcon, contentDescription = "Ring Listener", tint = ringColor)
+                        },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = ringColor.copy(alpha = 0.12f)
+                        )
+                    )
+                }
+            }
+
+            // Logs chip (after Ring)
+            if (onLogsClick != null) {
+                item {
+                    AssistChip(
+                        onClick = onLogsClick,
+                        label = { Text("Logs", style = MaterialTheme.typography.labelSmall) },
+                        leadingIcon = {
+                            Icon(Icons.AutoMirrored.Filled.List, contentDescription = "All Notifications Log", tint = ColorOff)
+                        },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = ColorOff.copy(alpha = 0.12f)
+                        )
+                    )
+                }
+            }
+
+            // Hubitat Notification chip (second)
+            if (hubitatNotificationViewModel != null && onHubitatListenerClick != null) {
+                item {
+                    val (hubitatIcon, hubitatLabel, hubitatColor) = when {
+                        hubitatPermissionGranted == true && hubitatServiceConnected == true ->
+                            Triple(Icons.Default.NotificationsActive, "Hubitat ●", ColorConnected)
+                        hubitatPermissionGranted == true ->
+                            Triple(Icons.Default.NotificationsActive, "Hubitat ○", ColorReconnecting)
+                        else ->
+                            Triple(Icons.Default.NotificationsOff, "Hubitat !", ColorArmedAway)
+                    }
+                    AssistChip(
+                        onClick = onHubitatListenerClick,
+                        label = { Text(hubitatLabel, style = MaterialTheme.typography.labelSmall) },
+                        leadingIcon = {
+                            Icon(hubitatIcon, contentDescription = "Hubitat Notifications", tint = hubitatColor)
+                        },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = hubitatColor.copy(alpha = 0.12f)
+                        )
+                    )
+                }
+            }
+
             // HSM chip
             item {
                 val hsmColor = hsmColor(hsmStatus)

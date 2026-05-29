@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -29,10 +30,15 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.timshubet.hubitatdashboard.ui.group.GroupScreen
+import com.timshubet.hubitatdashboard.ui.hubitat.HubitatNotificationScreen
+import com.timshubet.hubitatdashboard.ui.logs.AllNotificationsScreen
 import com.timshubet.hubitatdashboard.ui.ring.RingListenerScreen
 import com.timshubet.hubitatdashboard.ui.settings.SettingsScreen
+import com.timshubet.hubitatdashboard.viewmodel.AllNotificationsViewModel
 import com.timshubet.hubitatdashboard.viewmodel.DeviceViewModel
 import com.timshubet.hubitatdashboard.viewmodel.GroupEditViewModel
+import com.timshubet.hubitatdashboard.viewmodel.HubitatNotificationViewModel
+import com.timshubet.hubitatdashboard.viewmodel.RingListenerViewModel
 import kotlinx.coroutines.launch
 
 @Composable
@@ -47,7 +53,11 @@ fun MainScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val viewModel: DeviceViewModel = hiltViewModel()
     val groupEditViewModel: GroupEditViewModel = hiltViewModel()
+    val ringListenerViewModel: RingListenerViewModel = hiltViewModel()
+    val hubitatNotificationViewModel: HubitatNotificationViewModel = hiltViewModel()
+    val allNotificationsViewModel: AllNotificationsViewModel = hiltViewModel()
     val lifecycleOwner = LocalLifecycleOwner.current
+    val context = LocalContext.current
 
     LaunchedEffect(Unit) {
         viewModel.snackbarMessage.collect { msg ->
@@ -59,6 +69,17 @@ fun MainScreen(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_START && isConfigured) {
                 viewModel.refresh()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                ringListenerViewModel.refreshPermission(context)
+                hubitatNotificationViewModel.refreshPermission(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -95,6 +116,8 @@ fun MainScreen(
         ?: when (currentRoute) {
             NavRoutes.SETTINGS -> "Settings"
             NavRoutes.RING_LISTENER -> "Ring Listener"
+            NavRoutes.HUBITAT_LISTENER -> "Hubitat Notifications"
+            NavRoutes.ALL_LOGS -> "All Notifications"
             else -> "Hubitat Dashboard"
         }
 
@@ -134,7 +157,7 @@ fun MainScreen(
                 )
             },
             bottomBar = {
-                if (currentRoute != NavRoutes.SETTINGS && currentRoute != NavRoutes.RING_LISTENER) {
+                if (currentRoute != NavRoutes.SETTINGS && currentRoute != NavRoutes.RING_LISTENER && currentRoute != NavRoutes.HUBITAT_LISTENER && currentRoute != NavRoutes.ALL_LOGS) {
                     GroupBottomNav(
                         currentGroupId = currentGroupId,
                         onGroupSelected = { navController.navigate(NavRoutes.group(it)) },
@@ -149,7 +172,14 @@ fun MainScreen(
                     .fillMaxSize()
                     .padding(paddingValues)
             ) {
-                SystemStatusRow(viewModel = viewModel)
+                SystemStatusRow(
+                    viewModel = viewModel,
+                    ringListenerViewModel = ringListenerViewModel,
+                    onRingListenerClick = { navController.navigate(NavRoutes.RING_LISTENER) },
+                    hubitatNotificationViewModel = hubitatNotificationViewModel,
+                    onHubitatListenerClick = { navController.navigate(NavRoutes.HUBITAT_LISTENER) },
+                    onLogsClick = { navController.navigate(NavRoutes.ALL_LOGS) }
+                )
                 Box(modifier = Modifier.fillMaxSize()) {
                     NavHost(
                         navController = navController,
@@ -170,7 +200,17 @@ fun MainScreen(
                         }
                         composable(NavRoutes.RING_LISTENER) {
                             RingListenerScreen(
-                                onNavigateBack = { navController.popBackStack() }
+                                onNavigateBack = { navController.popBackStack(startDestination, false) }
+                            )
+                        }
+                        composable(NavRoutes.HUBITAT_LISTENER) {
+                            HubitatNotificationScreen(
+                                onNavigateBack = { navController.popBackStack(startDestination, false) }
+                            )
+                        }
+                        composable(NavRoutes.ALL_LOGS) {
+                            AllNotificationsScreen(
+                                onNavigateBack = { navController.popBackStack(startDestination, false) }
                             )
                         }
                         composable(NavRoutes.GROUP_PATTERN) { backStackEntry ->

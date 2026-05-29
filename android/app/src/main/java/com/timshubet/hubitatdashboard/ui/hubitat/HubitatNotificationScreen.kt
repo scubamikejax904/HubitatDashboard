@@ -1,7 +1,5 @@
-package com.timshubet.hubitatdashboard.ui.ring
+package com.timshubet.hubitatdashboard.ui.hubitat
 
-import android.content.Intent
-import android.provider.Settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -49,9 +47,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.timshubet.hubitatdashboard.data.repository.RingEvent
+import com.timshubet.hubitatdashboard.data.repository.HubitatEvent
 import com.timshubet.hubitatdashboard.ui.util.shareText
-import com.timshubet.hubitatdashboard.viewmodel.RingListenerViewModel
+import com.timshubet.hubitatdashboard.viewmodel.HubitatNotificationViewModel
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -60,9 +58,9 @@ private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RingListenerScreen(
+fun HubitatNotificationScreen(
     onNavigateBack: () -> Unit = {},
-    viewModel: RingListenerViewModel = hiltViewModel()
+    viewModel: HubitatNotificationViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -84,7 +82,7 @@ fun RingListenerScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Ring Listener") },
+                title = { Text("Hubitat Notifications") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to dashboard")
@@ -93,7 +91,7 @@ fun RingListenerScreen(
                 actions = {
                     if (events.isNotEmpty()) {
                         IconButton(onClick = {
-                            shareText(context, "Ring Listener Log", formatRingLog(events))
+                            shareText(context, "Hubitat Notifications Log", formatHubitatLog(events))
                         }) {
                             Icon(Icons.Default.Share, contentDescription = "Export log")
                         }
@@ -117,15 +115,17 @@ fun RingListenerScreen(
                 )
             }
             item {
-                PermissionStatusCard(
+                HubitatPermissionStatusCard(
                     permissionGranted = permissionGranted,
                     onOpenSettings = {
-                        context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                        context.startActivity(
+                            android.content.Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                        )
                     }
                 )
             }
             item {
-                ServiceHealthCard(connected = serviceConnected)
+                HubitatServiceHealthCard(connected = serviceConnected)
             }
 
             item { HorizontalDivider() }
@@ -137,7 +137,7 @@ fun RingListenerScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Recent Events",
+                        text = "Recent Notifications",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -152,14 +152,14 @@ fun RingListenerScreen(
             if (events.isEmpty()) {
                 item {
                     Text(
-                        text = "No events yet. All Ring notifications will appear here — forwarded ones show the hub response, others show why they were skipped.",
+                        text = "No notifications yet. All Hubitat app notifications will appear here.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             } else {
                 items(events) { event ->
-                    RingEventCard(event = event)
+                    HubitatEventCard(event = event)
                 }
             }
 
@@ -169,7 +169,7 @@ fun RingListenerScreen(
 }
 
 @Composable
-private fun PermissionStatusCard(permissionGranted: Boolean, onOpenSettings: () -> Unit) {
+private fun HubitatPermissionStatusCard(permissionGranted: Boolean, onOpenSettings: () -> Unit) {
     val containerColor = if (permissionGranted) Color(0xFFE8F5E9) else Color(0xFFFFF8E1)
     val contentColor = if (permissionGranted) Color(0xFF2E7D32) else Color(0xFFF57F17)
 
@@ -197,7 +197,7 @@ private fun PermissionStatusCard(permissionGranted: Boolean, onOpenSettings: () 
                 )
                 if (!permissionGranted) {
                     Text(
-                        text = "Required to intercept Ring notifications in the background.",
+                        text = "Required to intercept Hubitat notifications in the background.",
                         style = MaterialTheme.typography.bodySmall,
                         color = contentColor
                     )
@@ -216,7 +216,7 @@ private fun PermissionStatusCard(permissionGranted: Boolean, onOpenSettings: () 
 }
 
 @Composable
-private fun ServiceHealthCard(connected: Boolean) {
+private fun HubitatServiceHealthCard(connected: Boolean) {
     val containerColor = if (connected) Color(0xFFE8F5E9) else Color(0xFFF3F3F3)
     val contentColor = if (connected) Color(0xFF2E7D32) else Color(0xFF757575)
     val dotColor = if (connected) Color(0xFF4CAF50) else Color(0xFF9E9E9E)
@@ -247,10 +247,7 @@ private fun ServiceHealthCard(connected: Boolean) {
 }
 
 @Composable
-private fun RingEventCard(event: RingEvent) {
-    val successColor = Color(0xFF2E7D32)
-    val errorColor = MaterialTheme.colorScheme.error
-
+private fun HubitatEventCard(event: HubitatEvent) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -269,25 +266,34 @@ private fun RingEventCard(event: RingEvent) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontFamily = FontFamily.Monospace
                 )
+                if (event.title.isNotBlank()) {
+                    Text(
+                        text = event.title,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            if (event.notificationText.isNotBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = if (event.success) "✓ HTTP ${event.httpCode}"
-                           else if (event.url.isBlank()) "— skipped"
-                           else "✗ ${event.error ?: "Failed"}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = when {
-                        event.success    -> successColor
-                        event.url.isBlank() -> MaterialTheme.colorScheme.onSurfaceVariant
-                        else             -> errorColor
-                    },
-                    fontWeight = FontWeight.Medium
+                    text = event.notificationText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = event.notificationText.ifBlank { "(empty)" },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
+                text = event.packageName,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                fontFamily = FontFamily.Monospace,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
         }
@@ -297,18 +303,14 @@ private fun RingEventCard(event: RingEvent) {
 private val exportTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
     .withZone(ZoneId.systemDefault())
 
-private fun formatRingLog(events: List<RingEvent>): String = buildString {
-    appendLine("=== Ring Listener Log ===")
+private fun formatHubitatLog(events: List<HubitatEvent>): String = buildString {
+    appendLine("=== Hubitat Notifications Log ===")
     appendLine("Exported: ${exportTimeFormatter.format(java.time.Instant.now())}")
     appendLine("${events.size} event(s)")
     appendLine()
     events.forEach { e ->
-        append("[${timeFormatter.format(e.timestamp)}] ")
+        append("[${timeFormatter.format(e.timestamp)}] [${e.packageName}] ")
+        if (e.title.isNotBlank()) append("${e.title} | ")
         appendLine(e.notificationText.ifBlank { "(empty)" })
-        when {
-            e.success -> appendLine("  → HTTP ${e.httpCode} (forwarded)")
-            e.url.isBlank() -> appendLine("  → ${e.error ?: "skipped"}")
-            else -> appendLine("  → ERROR: ${e.error ?: "failed"} (HTTP ${e.httpCode ?: "—"})")
-        }
     }
 }
