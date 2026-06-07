@@ -40,7 +40,7 @@ fun HubVariableTile(
     var showEdit by remember { mutableStateOf(false) }
     var editValue by remember(currentValue) { mutableStateOf(currentValue) }
 
-    TileShell(title = tile.label, modifier = modifier) {
+    TileShell(title = tile.displayTitle, modifier = modifier) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,

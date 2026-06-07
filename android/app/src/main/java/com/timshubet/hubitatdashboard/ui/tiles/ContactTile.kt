@@ -16,7 +16,7 @@ import com.timshubet.hubitatdashboard.ui.tiles.common.TileStatusChip
 fun ContactTile(tile: TileConfig, device: DeviceState?, modifier: Modifier = Modifier) {
     val isOpen = device?.attributes?.get("contact") == "open"
     val color = if (isOpen) TileTokens.OrangeHot else TileTokens.GreenOn
-    TileShell(title = tile.label, modifier = modifier) {
+    TileShell(title = tile.displayTitle, modifier = modifier) {
         TileStatusChip(
             text = if (isOpen) "Open" else "Closed",
             color = color,

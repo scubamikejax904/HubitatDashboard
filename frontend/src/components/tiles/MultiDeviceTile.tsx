@@ -13,9 +13,12 @@ interface Props {
   groupId: string
 }
 
+/** Stable empty reference to avoid returning a new object from store selectors (prevents infinite re-render loops). */
+const EMPTY_TYPE_OVERRIDES: Record<string, TileType> = {}
+
 // ── Mini device cell renderers ──────────────────────────────────────────────
 
-function MiniSwitch({ deviceId, label }: { deviceId: string; label: string }) {
+function MiniSwitch({ deviceId, label, labelNode }: { deviceId: string; label: string; labelNode?: React.ReactNode }) {
   const state = useDeviceAttribute(deviceId, 'switch')
   const isPending = useIsPending(deviceId)
   const [execute] = useCommand()
@@ -23,7 +26,7 @@ function MiniSwitch({ deviceId, label }: { deviceId: string; label: string }) {
   const toggle = () => execute({ deviceId, command: isOn ? 'off' : 'on', optimisticAttribute: 'switch', optimisticValue: isOn ? 'off' : 'on' })
   return (
     <div className="flex flex-col items-center gap-0.5">
-      <p className="text-[10px] text-gray-900 dark:text-white truncate w-full text-center leading-tight">{label}</p>
+      {labelNode ?? <p className="text-[10px] text-gray-900 dark:text-white truncate w-full text-center leading-tight">{label}</p>}
       <button
         onClick={toggle}
         disabled={isPending}
@@ -37,7 +40,7 @@ function MiniSwitch({ deviceId, label }: { deviceId: string; label: string }) {
   )
 }
 
-function MiniDimmer({ deviceId, label }: { deviceId: string; label: string }) {
+function MiniDimmer({ deviceId, label, labelNode }: { deviceId: string; label: string; labelNode?: React.ReactNode }) {
   const state = useDeviceAttribute(deviceId, 'switch')
   const level = useDeviceAttribute(deviceId, 'level')
   const isPending = useIsPending(deviceId)
@@ -46,7 +49,7 @@ function MiniDimmer({ deviceId, label }: { deviceId: string; label: string }) {
   const toggle = () => execute({ deviceId, command: isOn ? 'off' : 'on', optimisticAttribute: 'switch', optimisticValue: isOn ? 'off' : 'on' })
   return (
     <div className="flex flex-col items-center gap-0.5">
-      <p className="text-[10px] text-gray-900 dark:text-white truncate w-full text-center leading-tight">{label}</p>
+      {labelNode ?? <p className="text-[10px] text-gray-900 dark:text-white truncate w-full text-center leading-tight">{label}</p>}
       <button
         onClick={toggle}
         disabled={isPending}
@@ -60,7 +63,7 @@ function MiniDimmer({ deviceId, label }: { deviceId: string; label: string }) {
   )
 }
 
-function MiniTemperature({ deviceId, label }: { deviceId: string; label: string }) {
+function MiniTemperature({ deviceId, label, labelNode }: { deviceId: string; label: string; labelNode?: React.ReactNode }) {
   const temp = useDeviceAttribute(deviceId, 'temperature')
   const t = temp !== undefined ? parseFloat(String(temp)) : null
   const colorClass = t === null ? 'text-gray-900 dark:text-gray-100'
@@ -69,7 +72,7 @@ function MiniTemperature({ deviceId, label }: { deviceId: string; label: string 
     :           'text-orange-400'
   return (
     <div className="flex flex-col items-center gap-0.5">
-      <p className="text-[10px] text-gray-900 dark:text-white truncate w-full text-center leading-tight">{label}</p>
+      {labelNode ?? <p className="text-[10px] text-gray-900 dark:text-white truncate w-full text-center leading-tight">{label}</p>}
       <p className={`text-xs font-semibold ${colorClass}`}>
         {temp !== undefined ? `${temp}°` : '—'}
       </p>
@@ -77,12 +80,12 @@ function MiniTemperature({ deviceId, label }: { deviceId: string; label: string 
   )
 }
 
-function MiniContact({ deviceId, label }: { deviceId: string; label: string }) {
+function MiniContact({ deviceId, label, labelNode }: { deviceId: string; label: string; labelNode?: React.ReactNode }) {
   const contact = useDeviceAttribute(deviceId, 'contact')
   const isOpen = contact === 'open'
   return (
     <div className="flex flex-col items-center gap-0.5">
-      <p className="text-[10px] text-gray-900 dark:text-white truncate w-full text-center leading-tight">{label}</p>
+      {labelNode ?? <p className="text-[10px] text-gray-900 dark:text-white truncate w-full text-center leading-tight">{label}</p>}
       <span className={`text-[10px] font-semibold ${isOpen ? 'text-orange-500' : 'text-green-500'}`}>
         {contact !== undefined ? (isOpen ? 'Open' : 'Closed') : '—'}
       </span>
@@ -90,12 +93,12 @@ function MiniContact({ deviceId, label }: { deviceId: string; label: string }) {
   )
 }
 
-function MiniMotion({ deviceId, label }: { deviceId: string; label: string }) {
+function MiniMotion({ deviceId, label, labelNode }: { deviceId: string; label: string; labelNode?: React.ReactNode }) {
   const motion = useDeviceAttribute(deviceId, 'motion')
   const active = motion === 'active'
   return (
     <div className="flex flex-col items-center gap-0.5">
-      <p className="text-[10px] text-gray-900 dark:text-white truncate w-full text-center leading-tight">{label}</p>
+      {labelNode ?? <p className="text-[10px] text-gray-900 dark:text-white truncate w-full text-center leading-tight">{label}</p>}
       <span className={`text-[10px] font-semibold ${active ? 'text-amber-500' : 'text-gray-400'}`}>
         {motion !== undefined ? (active ? 'Active' : 'Clear') : '—'}
       </span>
@@ -103,12 +106,12 @@ function MiniMotion({ deviceId, label }: { deviceId: string; label: string }) {
   )
 }
 
-function MiniPresence({ deviceId, label }: { deviceId: string; label: string }) {
+function MiniPresence({ deviceId, label, labelNode }: { deviceId: string; label: string; labelNode?: React.ReactNode }) {
   const presence = useDeviceAttribute(deviceId, 'presence')
   const present = presence === 'present'
   return (
     <div className="flex flex-col items-center gap-0.5">
-      <p className="text-[10px] text-gray-900 dark:text-white truncate w-full text-center leading-tight">{label}</p>
+      {labelNode ?? <p className="text-[10px] text-gray-900 dark:text-white truncate w-full text-center leading-tight">{label}</p>}
       <span className={`text-[10px] font-semibold ${present ? 'text-green-500' : 'text-gray-400'}`}>
         {presence !== undefined ? (present ? 'Home' : 'Away') : '—'}
       </span>
@@ -116,27 +119,27 @@ function MiniPresence({ deviceId, label }: { deviceId: string; label: string }) 
   )
 }
 
-function MiniGeneric({ deviceId, label }: { deviceId: string; label: string }) {
+function MiniGeneric({ deviceId, label, labelNode }: { deviceId: string; label: string; labelNode?: React.ReactNode }) {
   const state = useDeviceAttribute(deviceId, 'switch')
   return (
     <div className="flex flex-col items-center gap-0.5">
-      <p className="text-[10px] text-gray-900 dark:text-white truncate w-full text-center leading-tight">{label}</p>
+      {labelNode ?? <p className="text-[10px] text-gray-900 dark:text-white truncate w-full text-center leading-tight">{label}</p>}
       <p className="text-[10px] text-gray-700 dark:text-gray-300">{state !== undefined ? String(state) : '—'}</p>
     </div>
   )
 }
 
-function MiniDeviceCell({ deviceId, tileType, label }: { deviceId: string; tileType: TileType; label: string }) {
+function MiniDeviceCell({ deviceId, tileType, label, labelNode }: { deviceId: string; tileType: TileType; label: string; labelNode?: React.ReactNode }) {
   switch (tileType) {
     case 'switch':
-    case 'connector': return <MiniSwitch deviceId={deviceId} label={label} />
+    case 'connector': return <MiniSwitch deviceId={deviceId} label={label} labelNode={labelNode} />
     case 'dimmer':
-    case 'rgbw':      return <MiniDimmer deviceId={deviceId} label={label} />
-    case 'temperature': return <MiniTemperature deviceId={deviceId} label={label} />
-    case 'contact':   return <MiniContact deviceId={deviceId} label={label} />
-    case 'motion':    return <MiniMotion deviceId={deviceId} label={label} />
-    case 'presence':  return <MiniPresence deviceId={deviceId} label={label} />
-    default:          return <MiniGeneric deviceId={deviceId} label={label} />
+    case 'rgbw':      return <MiniDimmer deviceId={deviceId} label={label} labelNode={labelNode} />
+    case 'temperature': return <MiniTemperature deviceId={deviceId} label={label} labelNode={labelNode} />
+    case 'contact':   return <MiniContact deviceId={deviceId} label={label} labelNode={labelNode} />
+    case 'motion':    return <MiniMotion deviceId={deviceId} label={label} labelNode={labelNode} />
+    case 'presence':  return <MiniPresence deviceId={deviceId} label={label} labelNode={labelNode} />
+    default:          return <MiniGeneric deviceId={deviceId} label={label} labelNode={labelNode} />
   }
 }
 
@@ -243,20 +246,32 @@ export function MultiDeviceTile({ tileId, groupId }: Props) {
   const [editingLabel, setEditingLabel] = useState(false)
 
   const cfg = useGroupStore((s) => s.multiTileConfigs[tileId])
-  const tileTypeOverrides = useGroupStore((s) => s.tileTypeOverrides[groupId] ?? {})
+  const tileTypeOverrides = useGroupStore((s) => s.tileTypeOverrides[groupId] ?? EMPTY_TYPE_OVERRIDES)
   const updateMultiTileConfig = useGroupStore((s) => s.updateMultiTileConfig)
   const removeDeviceFromMultiTile = useGroupStore((s) => s.removeDeviceFromMultiTile)
   const removeMultiTile = useGroupStore((s) => s.removeMultiTile)
   const devices = useDeviceStore((s) => s.devices)
+  const [editingCellId, setEditingCellId] = useState<string | null>(null)
+  const [editDraft, setEditDraft] = useState('')
 
   if (!cfg) return null
 
   const { deviceIds, cols, label = 'Panel' } = cfg
   const clampedCols = Math.max(1, Math.min(cols, 4))
+  const cellLabels = cfg.labels ?? {}
 
   const setCols = (delta: number) => {
     const next = Math.max(1, Math.min(clampedCols + delta, 4))
     updateMultiTileConfig(tileId, { cols: next })
+  }
+
+  const commitCellLabel = (deviceId: string, value: string) => {
+    const trimmed = value.trim()
+    const next = { ...(cellLabels) }
+    if (trimmed) next[deviceId] = trimmed
+    else delete next[deviceId]
+    updateMultiTileConfig(tileId, { labels: next })
+    setEditingCellId(null)
   }
 
   const existingSet = new Set(deviceIds)
@@ -313,12 +328,44 @@ export function MultiDeviceTile({ tileId, groupId }: Props) {
           const device = devices[deviceId]
           if (!device) return null
           const resolvedType: TileType = tileTypeOverrides[deviceId] ?? autoTileType(device)
+          const cellLabel = cellLabels[deviceId]?.trim() || device.label
+          const isEditingThis = editMode && editingCellId === deviceId
+
+          const labelNode = editMode
+            ? isEditingThis
+              ? (
+                <input
+                  autoFocus
+                  type="text"
+                  value={editDraft}
+                  onChange={(e) => setEditDraft(e.target.value)}
+                  onBlur={() => commitCellLabel(deviceId, editDraft)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); commitCellLabel(deviceId, editDraft) }
+                    if (e.key === 'Escape') { e.preventDefault(); setEditingCellId(null) }
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  placeholder={device.label}
+                  className="w-full text-[10px] text-center bg-white dark:bg-gray-800 border border-blue-400 rounded px-1 py-0 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 outline-none focus:ring-1 focus:ring-blue-400"
+                />
+              )
+              : (
+                <p
+                  className="text-[10px] text-gray-900 dark:text-white truncate w-full text-center leading-tight cursor-text hover:opacity-70"
+                  onClick={() => { setEditingCellId(deviceId); setEditDraft(cellLabels[deviceId] ?? '') }}
+                  title="Click to rename"
+                >
+                  {cellLabel}
+                </p>
+              )
+            : undefined
+
           return (
             <div
               key={deviceId}
               className="relative flex flex-col items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-200 dark:bg-gray-700 p-1.5 min-h-[44px]"
             >
-              <MiniDeviceCell deviceId={deviceId} tileType={resolvedType} label={device.label} />
+              <MiniDeviceCell deviceId={deviceId} tileType={resolvedType} label={cellLabel} labelNode={labelNode} />
               {editMode && (
                 <>
                   <button

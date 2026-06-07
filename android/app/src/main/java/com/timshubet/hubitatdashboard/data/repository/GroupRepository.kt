@@ -43,6 +43,7 @@ class GroupRepository @Inject constructor(
         private const val KEY_TILE_ORDER = "tile_order"
         private const val KEY_CHILD_GROUP_ORDER = "child_group_order"
         private const val KEY_MULTI_TILE_CONFIGS = "multi_tile_configs"
+        private const val KEY_TILE_TITLE_OVERRIDES = "tile_title_overrides"
     }
 
     private val _customGroups = MutableStateFlow(loadCustomGroups())
@@ -54,6 +55,7 @@ class GroupRepository @Inject constructor(
     private val _tileOrder = MutableStateFlow(loadStringListMap(KEY_TILE_ORDER))
     private val _childGroupOrder = MutableStateFlow(loadStringListMap(KEY_CHILD_GROUP_ORDER))
     private val _multiTileConfigs = MutableStateFlow(loadMultiTileConfigs())
+    private val _tileTitleOverrides = MutableStateFlow(loadStringStringMapMap(KEY_TILE_TITLE_OVERRIDES))
 
     val customGroups: StateFlow<List<CustomGroupData>> = _customGroups.asStateFlow()
     val groupOrder: StateFlow<List<String>> = _groupOrder.asStateFlow()
@@ -70,6 +72,8 @@ class GroupRepository @Inject constructor(
     val tileOrderRaw: Map<String, List<String>> get() = _tileOrder.value
     /** Multi-device tile configs: preserved as-is from web exports for round-trip fidelity. */
     val multiTileConfigsRaw: Map<String, MultiTileConfig> get() = _multiTileConfigs.value
+    /** Per-group tile title overrides: groupId → deviceId → display title. */
+    val tileTitleOverridesRaw: Map<String, Map<String, String>> get() = _tileTitleOverrides.value
 
     val resolvedGroupsFlow: StateFlow<List<GroupConfig>> =
         _customGroups
@@ -80,6 +84,7 @@ class GroupRepository @Inject constructor(
             .combine(_tileOrder) { _, _ -> }
             .combine(_childGroupOrder) { _, _ -> }
             .combine(_multiTileConfigs) { _, _ -> }
+            .combine(_tileTitleOverrides) { _, _ -> }
             .combine(deviceRepository.devices) { _, _ -> }
             .map { resolveGroupsNow() }
             .stateIn(scope, SharingStarted.Eagerly, resolveGroupsNow())
@@ -215,6 +220,23 @@ class GroupRepository @Inject constructor(
         saveAll()
     }
 
+    fun setTileTitle(groupId: String, deviceId: String, title: String) {
+        val current = _tileTitleOverrides.value.toMutableMap()
+        val groupTitles = current[groupId]?.toMutableMap() ?: mutableMapOf()
+        if (title.isNotBlank()) {
+            groupTitles[deviceId] = title.trim()
+        } else {
+            groupTitles.remove(deviceId)
+        }
+        if (groupTitles.isEmpty()) {
+            current.remove(groupId)
+        } else {
+            current[groupId] = groupTitles
+        }
+        _tileTitleOverrides.value = current
+        saveAll()
+    }
+
     private fun resolveGroupsNow(): List<GroupConfig> {
         val customGroups = _customGroups.value
         val groupAdditions = _groupAdditions.value
@@ -223,6 +245,7 @@ class GroupRepository @Inject constructor(
         val tileTypeOverrides = _tileTypeOverrides.value
         val tileOrder = _tileOrder.value
         val childGroupOrder = _childGroupOrder.value
+        val tileTitleOverrides = _tileTitleOverrides.value
         val devices = deviceRepository.devices.value
 
         val resolvedMap = mutableMapOf<String, GroupConfig>()
@@ -243,18 +266,22 @@ class GroupRepository @Inject constructor(
                 buildTileConfig(deviceId, devices, groupOverrides)
             }
             tiles = applyTileOrder(tiles + addedTiles, tileOrder[staticGroup.id])
+            val titleMap = tileTitleOverrides[staticGroup.id] ?: emptyMap()
+            tiles = tiles.map { tile -> applyTitleOverride(tile, titleMap) }
             resolvedMap[staticGroup.id] = staticGroup.copy(tiles = tiles)
         }
 
         for (customGroup in customGroups) {
             val additions = groupAdditions[customGroup.id] ?: emptyList()
             val groupOverrides = tileTypeOverrides[customGroup.id] ?: emptyMap()
-            val tiles = applyTileOrder(
+            var tiles = applyTileOrder(
                 additions.mapNotNull { deviceId ->
                     buildTileConfig(deviceId, devices, groupOverrides)
                 },
                 tileOrder[customGroup.id]
             )
+            val titleMap = tileTitleOverrides[customGroup.id] ?: emptyMap()
+            tiles = tiles.map { tile -> applyTitleOverride(tile, titleMap) }
             resolvedMap[customGroup.id] = GroupConfig(
                 id = customGroup.id,
                 displayName = customGroup.displayName,
@@ -315,6 +342,16 @@ class GroupRepository @Inject constructor(
         }
     }
 
+    private fun applyTitleOverride(tile: TileConfig, titleMap: Map<String, String>): TileConfig {
+        val key = when {
+            !tile.deviceId.isNullOrBlank() -> tile.deviceId
+            tile.tileType == TileType.HUB_VARIABLE && tile.hubVarName != null -> "hub-variable-${tile.hubVarName}"
+            else -> tile.tileType.name
+        }
+        val overrideTitle = titleMap[key]
+        return if (!overrideTitle.isNullOrBlank()) tile.copy(title = overrideTitle) else tile
+    }
+
     private fun tileOrderKey(tile: TileConfig): String = when {
         tile.tileType == TileType.HUB_VARIABLE && !tile.hubVarName.isNullOrBlank() ->
             "hub-variable-${tile.hubVarName}"
@@ -343,7 +380,8 @@ class GroupRepository @Inject constructor(
         childGroupOrder: Map<String, List<String>>,
         tileTypeOverrides: Map<String, Map<String, TileType>>,
         tileOrder: Map<String, List<String>>,
-        multiTileConfigs: Map<String, MultiTileConfig> = emptyMap()
+        multiTileConfigs: Map<String, MultiTileConfig> = emptyMap(),
+        tileTitleOverrides: Map<String, Map<String, String>> = emptyMap()
     ) {
         // Preserve static group IDs not present in the imported order
         val staticIds = groups.map { it.id }
@@ -358,6 +396,7 @@ class GroupRepository @Inject constructor(
         _tileTypeOverrides.value = tileTypeOverrides
         _tileOrder.value = tileOrder
         _multiTileConfigs.value = multiTileConfigs
+        _tileTitleOverrides.value = tileTitleOverrides
         saveAll()
     }
 
@@ -375,6 +414,7 @@ class GroupRepository @Inject constructor(
             .putString(KEY_TILE_ORDER, gson.toJson(_tileOrder.value))
             .putString(KEY_CHILD_GROUP_ORDER, gson.toJson(_childGroupOrder.value))
             .putString(KEY_MULTI_TILE_CONFIGS, gson.toJson(_multiTileConfigs.value))
+            .putString(KEY_TILE_TITLE_OVERRIDES, gson.toJson(_tileTitleOverrides.value))
             .apply()
     }
 
@@ -460,6 +500,14 @@ class GroupRepository @Inject constructor(
             }
 
             result
+        } catch (e: Exception) { emptyMap() }
+    }
+
+    /** Loads a Map<String, Map<String, String>> from SharedPreferences. */
+    private fun loadStringStringMapMap(key: String): Map<String, Map<String, String>> {
+        val json = prefs.getString(key, null) ?: return emptyMap()
+        return try {
+            gson.fromJson(json, object : TypeToken<Map<String, Map<String, String>>>() {}.type)
         } catch (e: Exception) { emptyMap() }
     }
 }

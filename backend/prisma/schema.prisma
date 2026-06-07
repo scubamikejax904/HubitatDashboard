@@ -1,0 +1,17 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model DashboardConfig {
+  id        Int      @id @default(1)
+  config    Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("dashboard_config")
+}

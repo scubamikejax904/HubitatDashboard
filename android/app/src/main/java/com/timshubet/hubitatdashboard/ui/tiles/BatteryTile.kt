@@ -36,7 +36,7 @@ fun BatteryTile(tile: TileConfig, device: DeviceState?, modifier: Modifier = Mod
     val level = batteryStr?.toFloatOrNull()?.toInt() ?: -1
     val color = if (level >= 0) batteryColor(level) else TileTokens.TitleMuted
 
-    TileShell(title = tile.label, modifier = modifier) {
+    TileShell(title = tile.displayTitle, modifier = modifier) {
         TileValue(
             icon = if (level >= 0) batteryIcon(level) else Icons.Filled.Battery0Bar,
             value = if (level >= 0) "$level" else "—",

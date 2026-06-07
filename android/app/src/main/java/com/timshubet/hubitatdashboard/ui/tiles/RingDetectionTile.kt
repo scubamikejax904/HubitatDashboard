@@ -25,7 +25,7 @@ fun RingDetectionTile(
     val varValue = tile.hubVarName?.let { name ->
         hubVariables.firstOrNull { it.name == name }?.value
     }
-    TileShell(title = tile.label, modifier = modifier) {
+    TileShell(title = tile.displayTitle, modifier = modifier) {
         TileStatusChip(
             text = varValue ?: if (isActive) "Active" else "Inactive",
             color = color,

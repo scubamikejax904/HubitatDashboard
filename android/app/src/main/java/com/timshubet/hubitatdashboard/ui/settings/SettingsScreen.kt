@@ -29,7 +29,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }2
+    val snackbarHostState = remember { SnackbarHostState() }
     var showToken by remember { mutableStateOf(false) }
     var showHubPassword by remember { mutableStateOf(false) }
     var showImportConfirmDialog by remember { mutableStateOf<String?>(null) }

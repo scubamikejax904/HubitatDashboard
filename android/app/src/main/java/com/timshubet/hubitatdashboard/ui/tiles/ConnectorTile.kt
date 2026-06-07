@@ -40,7 +40,7 @@ fun ConnectorTile(
     }
 
     TileShell(
-        title = tile.label,
+        title = tile.displayTitle,
         modifier = modifier.clickable(enabled = !isPending && device != null) { toggle() }
     ) {
         TilePill(

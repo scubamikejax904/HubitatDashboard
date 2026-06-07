@@ -26,6 +26,11 @@ function loadConfig(): Config {
     }
   }
 
+  // DATABASE_URL env var takes precedence over config.json databaseUrl
+  if (process.env.DATABASE_URL) {
+    cfg['databaseUrl'] = process.env.DATABASE_URL;
+  }
+
   return cfg as unknown as Config;
 }
 

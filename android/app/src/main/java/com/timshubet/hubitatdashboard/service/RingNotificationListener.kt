@@ -330,7 +330,8 @@ class RingNotificationListener : NotificationListenerService() {
                 return@launch
             }
 
-            val encodedText = Uri.encode(notificationText)
+            val timestampedText = "$notificationText [${System.currentTimeMillis() / 1000}]"
+            val encodedText = Uri.encode(timestampedText)
             val url = "$baseUrl/hubvariables/$HUB_VARIABLE_NAME/$encodedText?access_token=$token"
 
             val request = runCatching {

@@ -26,7 +26,9 @@ data class GroupExportData(
     @SerializedName("tileOrder")       val tileOrder: Map<String, List<String>> = emptyMap(),
     // Preserved opaque so multi-device tile configs survive web→Android→web round-trips.
     // Android does not render these tiles but stores and re-exports the config unchanged.
-    @SerializedName("multiTileConfigs") val multiTileConfigs: Map<String, MultiTileConfig> = emptyMap()
+    @SerializedName("multiTileConfigs") val multiTileConfigs: Map<String, MultiTileConfig> = emptyMap(),
+    /** Per-group tile display title overrides: groupId → deviceId/syntheticId → title string. */
+    @SerializedName("tileTitleOverrides") val tileTitleOverrides: Map<String, Map<String, String>> = emptyMap()
 )
 
 /** Used only when parsing v1 export files where overrides were deviceId → typeString */
@@ -123,7 +125,8 @@ class GroupExportManager @Inject constructor(
             childGroupOrder   = groupRepository.childGroupOrderRaw,
             tileTypeOverrides = tileTypeOverrides,
             tileOrder         = tileOrder,
-            multiTileConfigs  = groupRepository.multiTileConfigsRaw
+            multiTileConfigs  = groupRepository.multiTileConfigsRaw,
+            tileTitleOverrides = groupRepository.tileTitleOverridesRaw
         )
         return gson.toJson(data)
     }
@@ -211,7 +214,8 @@ class GroupExportManager @Inject constructor(
             childGroupOrder   = data.childGroupOrder,
             tileTypeOverrides = androidTileTypeOverrides,
             tileOrder         = androidTileOrder,
-            multiTileConfigs  = data.multiTileConfigs
+            multiTileConfigs  = data.multiTileConfigs,
+            tileTitleOverrides = data.tileTitleOverrides
         )
     }
 }

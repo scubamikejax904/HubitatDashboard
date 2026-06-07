@@ -9,5 +9,7 @@ package com.timshubet.hubitatdashboard.data.model
 data class MultiTileConfig(
     val deviceIds: List<String> = emptyList(),
     val cols: Int = 2,
-    val label: String? = null
+    val label: String? = null,
+    /** Per-device display title overrides within the panel, keyed by deviceId. */
+    val labels: Map<String, String>? = null
 )

@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.util.Log
 import com.timshubet.hubitatdashboard.data.model.DeviceState
 import com.timshubet.hubitatdashboard.data.model.MultiTileConfig
 import com.timshubet.hubitatdashboard.data.model.TileConfig
@@ -48,6 +49,7 @@ fun MultiDeviceTileCard(
 ) {
     if (config == null || config.deviceIds.isEmpty()) return
 
+    Log.d("MultiTileCard", "tile=${tile.deviceId} labels=${config.labels} deviceIds=${config.deviceIds}")
     val cols = config.cols.coerceIn(1, 4)
     val label = config.label?.ifBlank { null } ?: "Panel"
     val deviceIds = config.deviceIds.filter { devices.containsKey(it) }
@@ -77,9 +79,12 @@ fun MultiDeviceTileCard(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         rowDevices.forEach { deviceId ->
+                            val cellLabel = config.labels?.get(deviceId)?.takeIf { it.isNotBlank() }
+                                ?: devices[deviceId]!!.label
                             MiniDeviceCell(
                                 deviceId = deviceId,
                                 device = devices[deviceId]!!,
+                                displayLabel = cellLabel,
                                 onCommand = onCommand,
                                 modifier = Modifier.weight(1f)
                             )
@@ -98,6 +103,7 @@ fun MultiDeviceTileCard(
 private fun MiniDeviceCell(
     deviceId: String,
     device: DeviceState,
+    displayLabel: String,
     onCommand: (deviceId: String, command: String, value: String?) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -116,7 +122,7 @@ private fun MiniDeviceCell(
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
-                text = device.label,
+                text = displayLabel,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,

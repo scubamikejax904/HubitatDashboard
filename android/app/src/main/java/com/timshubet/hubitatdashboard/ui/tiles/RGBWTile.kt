@@ -65,7 +65,7 @@ fun RGBWTile(
     var editSat by remember(saturation) { mutableFloatStateOf(saturation) }
     var editLevel by remember(level) { mutableFloatStateOf(level) }
 
-    TileShell(title = tile.label, modifier = modifier) {
+    TileShell(title = tile.displayTitle, modifier = modifier) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,

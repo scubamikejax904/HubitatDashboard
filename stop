@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PID_FILE="$ROOT/.dashboard-pids.json"
+
+printf '\n  Stopping Hubitat Dashboard...\n'
+
+stopped=()
+
+if [[ -f "$PID_FILE" ]]; then
+  backend_pid="$(grep -oE '"backend"[[:space:]]*:[[:space:]]*[0-9]+' "$PID_FILE" | grep -oE '[0-9]+' | head -n1 || true)"
+  frontend_pid="$(grep -oE '"frontend"[[:space:]]*:[[:space:]]*[0-9]+' "$PID_FILE" | grep -oE '[0-9]+' | head -n1 || true)"
+
+  for entry in "backend:$backend_pid" "frontend:$frontend_pid"; do
+    name="${entry%%:*}"
+    pid="${entry##*:}"
+    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+      kill "$pid" 2>/dev/null || true
+      stopped+=("$name (PID $pid)")
+    fi
+  done
+
+  rm -f "$PID_FILE"
+fi
+
+# Best-effort cleanup for any leftover processes still listening on the app ports.
+for port in 3001 5173; do
+  if command -v lsof >/dev/null 2>&1; then
+    while read -r pid; do
+      [[ -n "$pid" ]] || continue
+      if kill -0 "$pid" 2>/dev/null; then
+        kill "$pid" 2>/dev/null || true
+        stopped+=("port $port (PID $pid)")
+      fi
+    done < <(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)
+  fi
+done
+
+if ((${#stopped[@]} > 0)); then
+  printf '  Stopped: %s\n' "$(printf '%s\n' "${stopped[@]}" | sort -u | paste -sd '; ' -)"
+else
+  printf '  Nothing was running.\n'
+fi
+
+printf '\n'

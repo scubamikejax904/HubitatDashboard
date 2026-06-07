@@ -28,7 +28,7 @@ fun TemperatureTile(tile: TileConfig, device: DeviceState?, modifier: Modifier =
     val humidity = device?.attributes?.get("humidity")
     val color = temperatureColor(temp)
 
-    TileShell(title = tile.label, modifier = modifier) {
+    TileShell(title = tile.displayTitle, modifier = modifier) {
         TileValue(
             icon = Icons.Filled.Thermostat,
             value = tempStr ?: "—",

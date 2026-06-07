@@ -26,12 +26,16 @@ export interface TileConfig {
   hubVarName?: string;
   wide?: boolean;
   multiTileId?: string;
+  /** User-editable display title override (per-group). Undefined/blank = use label (device name). */
+  title?: string;
 }
 
 export interface MultiTileConfig {
   deviceIds: string[];
   cols: number;
   label?: string;
+  /** Per-device display title overrides within the panel, keyed by deviceId. */
+  labels?: Record<string, string>;
 }
 
 export interface GroupConfig {

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
 import { Sun, Circle, X, ChevronUp, ChevronDown, Plus, Download, Upload, CloudUpload, CloudDownload, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { useConnectionStatus, useSidebarOpen, useSidebarCollapsed, useDeviceStore } from '../store/deviceStore'
@@ -9,6 +9,7 @@ import { groups as staticGroupConfigs } from '../config/groups'
 import { ICON_MAP } from '../utils/iconMap'
 import { CreateGroupModal } from './CreateGroupModal'
 import { toggleDarkMode } from '../utils/darkMode'
+import { getSyncStatus, subscribeSyncStatus, type SyncStatus } from '../hooks/useConfigSync'
 
 const STATIC_NAME_MAP: Record<string, string> = Object.fromEntries(
   staticGroupConfigs.map((g) => [g.id, g.displayName]),
@@ -32,6 +33,8 @@ export function Sidebar() {
   const [pendingImport, setPendingImport] = useState<GroupExportPayload | null>(null)
   const [hubSyncing, setHubSyncing] = useState<'push' | 'pull' | null>(null)
   const importInputRef = useRef<HTMLInputElement>(null)
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(getSyncStatus)
+  useEffect(() => subscribeSyncStatus(setSyncStatus), [])
 
   const groupOrder     = useGroupStore((s) => s.groupOrder)
   const customGroups   = useGroupStore((s) => s.customGroups)
@@ -41,6 +44,7 @@ export function Sidebar() {
   const tileTypeOverrides = useGroupStore((s) => s.tileTypeOverrides)
   const tileOrder       = useGroupStore((s) => s.tileOrder)
   const multiTileConfigs = useGroupStore((s) => s.multiTileConfigs)
+  const tileTitleOverrides = useGroupStore((s) => s.tileTitleOverrides)
   const moveGroupUp    = useGroupStore((s) => s.moveGroupUp)
   const moveGroupDown  = useGroupStore((s) => s.moveGroupDown)
   const addCustomGroup = useGroupStore((s) => s.addCustomGroup)
@@ -59,6 +63,7 @@ export function Sidebar() {
       tileTypeOverrides,
       tileOrder,
       multiTileConfigs,
+      tileTitleOverrides,
     }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -98,6 +103,7 @@ export function Sidebar() {
         tileTypeOverrides,
         tileOrder,
         multiTileConfigs,
+        tileTitleOverrides,
       }
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       if (hubUsername) headers['X-Hub-Username'] = hubUsername
@@ -318,6 +324,13 @@ export function Sidebar() {
             />
           </div>
           <div className={`flex ${sidebarCollapsed ? 'flex-col items-center gap-1' : 'gap-1'} mt-1`}>
+            {!sidebarCollapsed && (
+              <div className="w-full mb-1 text-center">
+                {syncStatus === 'saving' && <span className="text-[10px] text-amber-400">Saving…</span>}
+                {syncStatus === 'saved'  && <span className="text-[10px] text-green-500">● Saved</span>}
+                {syncStatus === 'error'  && <span className="text-[10px] text-red-400">⚠ Sync error</span>}
+              </div>
+            )}
             <button
               onClick={() => setShowHubPushConfirm(true)}
               disabled={hubSyncing !== null}

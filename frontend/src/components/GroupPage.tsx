@@ -198,6 +198,48 @@ function useAllGroupNames() {
   })
 }
 
+/** Inline title editor for edit-mode overlays. Shows current title or placeholder (device name). */
+function TitleEditInline({
+  deviceId,
+  tileType,
+  hubVarName,
+  deviceLabel,
+  groupId,
+  tileTitleOverrides,
+  setTileTitle,
+}: {
+  deviceId?: string
+  tileType: string
+  hubVarName?: string
+  deviceLabel: string
+  groupId: string
+  tileTitleOverrides: Record<string, Record<string, string>>
+  setTileTitle: (groupId: string, deviceId: string, title: string) => void
+}) {
+  const titleKey = deviceId ??
+    (tileType === 'hub-variable' ? `hub-variable-${hubVarName ?? ''}` : tileType)
+  const stored = tileTitleOverrides[groupId]?.[titleKey] ?? ''
+  const [draft, setDraft] = useState(stored)
+  // Sync if stored changes externally (e.g., import)
+  useEffect(() => { setDraft(stored) }, [stored])
+  const commit = () => {
+    const trimmed = draft.trim()
+    setTileTitle(groupId, titleKey, trimmed)
+  }
+  return (
+    <input
+      type="text"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commit(); (e.target as HTMLInputElement).blur() } }}
+      draggable={false}
+      placeholder={deviceLabel}
+      className="w-full text-[11px] font-medium text-white bg-white/10 border border-white/20 rounded px-1.5 py-0.5 placeholder:text-white/50 focus:outline-none focus:ring-1 focus:ring-blue-400 truncate flex-shrink-0"
+    />
+  )
+}
+
 /** Overlay shown over each tile in edit mode. */
 function EditOverlay({
   tile,
@@ -218,6 +260,8 @@ function EditOverlay({
   const groupAdditions           = useGroupStore((s) => s.groupAdditions)
   const setTileTypeOverride      = useGroupStore((s) => s.setTileTypeOverride)
   const tileTypeOverrides        = useGroupStore((s) => s.tileTypeOverrides)
+  const setTileTitle             = useGroupStore((s) => s.setTileTitle)
+  const tileTitleOverrides       = useGroupStore((s) => s.tileTitleOverrides)
   const devices                  = useDeviceStore((s) => s.devices)
 
   const deviceId = tile.deviceId
@@ -226,10 +270,18 @@ function EditOverlay({
     if (tile.tileType === 'multi-device' && tile.multiTileId) {
       const tileId = tile.multiTileId
       return (
-        <div className="absolute inset-0 rounded-xl bg-black/70 z-10 flex flex-col p-1.5 gap-1">
-          <p className="text-white font-semibold text-[11px] text-center leading-tight truncate flex-shrink-0 overflow-hidden">
-            {tile.label}
-          </p>
+        <div
+          className="absolute inset-0 rounded-xl bg-black/70 z-10 flex flex-col p-1.5 gap-1"
+        >
+          <TitleEditInline
+            deviceId={tile.multiTileId}
+            tileType={tile.tileType}
+            hubVarName={tile.hubVarName}
+            deviceLabel={tile.label}
+            groupId={groupId}
+            tileTitleOverrides={tileTitleOverrides}
+            setTileTitle={setTileTitle}
+          />
           <div className="flex gap-1 flex-wrap justify-center items-center flex-1">
             <button
               onClick={() => { removeMultiTile(groupId, tileId); showToast('Removed from group') }}
@@ -246,10 +298,18 @@ function EditOverlay({
     const isInAdditions = !!syntheticId && (groupAdditions[groupId] ?? []).includes(syntheticId)
     if (!syntheticId || !isInAdditions || isOther) return null
     return (
-      <div className="absolute inset-0 rounded-xl bg-black/70 z-10 flex flex-col p-1.5 gap-1">
-        <p className="text-white font-semibold text-[11px] text-center leading-tight truncate flex-shrink-0 overflow-hidden">
-          {tile.label}
-        </p>
+      <div
+        className="absolute inset-0 rounded-xl bg-black/70 z-10 flex flex-col p-1.5 gap-1"
+      >
+        <TitleEditInline
+          deviceId={undefined}
+          tileType={tile.tileType}
+          hubVarName={tile.hubVarName}
+          deviceLabel={tile.label}
+          groupId={groupId}
+          tileTitleOverrides={tileTitleOverrides}
+          setTileTitle={setTileTitle}
+        />
         <div className="flex gap-1 flex-wrap justify-center items-center flex-1">
           <button
             onClick={() => { removeFromGroupAdditions(groupId, syntheticId); showToast('Removed from group') }}
@@ -290,11 +350,19 @@ function EditOverlay({
   const available = allNames.filter((g) => g.id !== groupId && g.id !== 'other')
 
   return (
-    <div className="absolute inset-0 rounded-xl bg-black/70 z-10 flex flex-col p-1.5 gap-1">
-      {/* Device name — always pinned at top */}
-      <p className="text-white font-semibold text-[11px] text-center leading-tight truncate flex-shrink-0 overflow-hidden">
-        {tile.label}
-      </p>
+    <div
+      className="absolute inset-0 rounded-xl bg-black/70 z-10 flex flex-col p-1.5 gap-1"
+    >
+      {/* Title editor — editable title override, placeholder = device name */}
+      <TitleEditInline
+        deviceId={deviceId}
+        tileType={tile.tileType}
+        hubVarName={tile.hubVarName}
+        deviceLabel={tile.label}
+        groupId={groupId}
+        tileTitleOverrides={tileTitleOverrides}
+        setTileTitle={setTileTitle}
+      />
       {/* Action buttons — centered in remaining space */}
       <div className="flex gap-1 flex-wrap justify-center items-center flex-1">
         {canRemove && (
@@ -446,20 +514,26 @@ function TileWrapper({
   dragHandlers?: DragHandlers
 }) {
   const tileTypeOverrides = useGroupStore((s) => s.tileTypeOverrides)
-  // Apply per-device override here as a final guard — ensures the displayed
-  // type is always current even if the tile config was built before the override.
-  const effectiveTile: TileConfig =
-    tile.deviceId && (tileTypeOverrides[groupId] ?? {})[tile.deviceId]
-      ? { ...tile, tileType: (tileTypeOverrides[groupId] ?? {})[tile.deviceId!] }
-      : tile
+  const tileTitleOverrides = useGroupStore((s) => s.tileTitleOverrides)
+  // Apply per-device type override — ensures the displayed type is always current.
+  const typeOverride = tile.deviceId && (tileTypeOverrides[groupId] ?? {})[tile.deviceId]
+  // Look up title override: by deviceId, by hub-variable key, or by tileType (for special tiles)
+  const titleOverride =
+    (tile.deviceId && tileTitleOverrides[groupId]?.[tile.deviceId]) ||
+    (tile.tileType === 'hub-variable' && tileTitleOverrides[groupId]?.[`hub-variable-${tile.hubVarName ?? ''}`]) ||
+    (!tile.deviceId && tileTitleOverrides[groupId]?.[tile.tileType]) ||
+    ''
+  const displayLabel = titleOverride.trim() || tile.label
+  const effectiveTile: TileConfig = {
+    ...(typeOverride ? { ...tile, tileType: typeOverride } : tile),
+    label: displayLabel,
+  }
 
   const isDraggable = editMode && !!dragHandlers
 
   return (
     <div
       className={`break-inside-avoid mb-3 relative${PINNED_TYPES.has(tile.tileType) ? ' col-span-2' : tile.wide ? ' [column-span:all]' : ''}${dragHandlers?.isDragOver ? ' ring-2 ring-blue-400 rounded-xl' : ''}${dragHandlers?.isDragging ? ' opacity-40' : ''}`}
-      draggable={isDraggable || undefined}
-      onDragStart={isDraggable ? dragHandlers!.onDragStart : undefined}
       onDragOver={isDraggable ? dragHandlers!.onDragOver : undefined}
       onDrop={isDraggable ? dragHandlers!.onDrop : undefined}
       onDragEnd={isDraggable ? dragHandlers!.onDragEnd : undefined}
@@ -467,7 +541,11 @@ function TileWrapper({
       {renderTile(effectiveTile, groupId)}
       {editMode && effectiveTile.tileType !== 'multi-device' && <EditOverlay tile={effectiveTile} groupId={groupId} isOther={isOther} />}
       {isDraggable && (
-        <div className="absolute top-1.5 left-1/2 -translate-x-1/2 z-20 text-white/50 pointer-events-none">
+        <div
+          className="absolute top-1.5 left-1/2 -translate-x-1/2 z-20 text-white/50 cursor-grab active:cursor-grabbing p-1 -m-1"
+          draggable={true}
+          onDragStart={dragHandlers!.onDragStart}
+        >
           <GripVertical size={12} />
         </div>
       )}

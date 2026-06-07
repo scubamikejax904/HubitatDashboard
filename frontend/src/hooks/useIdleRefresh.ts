@@ -1,12 +1,14 @@
 import { useEffect, useRef } from 'react'
 import { useSettingsStore } from '../store/settingsStore'
+import { syncDashboardState } from '../utils/loadDashboardState'
+import type { SettingsStore } from '../store/settingsStore'
 
 const ACTIVITY_EVENTS: (keyof DocumentEventMap)[] = [
   'mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click',
 ]
 
 export function useIdleRefresh(): void {
-  const idleRefreshMinutes = useSettingsStore((s) => s.idleRefreshMinutes)
+  const idleRefreshMinutes = useSettingsStore((s: SettingsStore) => s.idleRefreshMinutes)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -17,7 +19,7 @@ export function useIdleRefresh(): void {
     function resetTimer() {
       if (timerRef.current) clearTimeout(timerRef.current)
       timerRef.current = setTimeout(() => {
-        window.location.reload()
+        void syncDashboardState()
       }, delayMs)
     }
 

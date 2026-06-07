@@ -4,6 +4,7 @@ const { compare } = bcrypt;
 import { config } from './config.js';
 import { getDevice, setAllDevices, getAllDevices, getCachedHubVars } from './cache.js';
 import type { DeviceState } from './types.js';
+import { prisma } from './db.js';
 
 function makerUrl(path: string): string {
   return `http://${config.hubIP}/apps/api/${config.makerAppId}${path}?access_token=${config.accessToken}`;
@@ -139,7 +140,7 @@ export async function proxyRoutes(fastify: FastifyInstance): Promise<void> {
     }
   );
 
-  // GET /api/hub-file/:filename — reads a file from the hub's local file store (no auth required)
+  // GET /api/hub-file/:filename
   fastify.get<{ Params: { filename: string } }>(
     '/api/hub-file/:filename',
     async (req, reply) => {
@@ -201,4 +202,33 @@ export async function proxyRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.send({ ok: true });
     }
   );
+
+  // GET /api/config — load dashboard config from DB
+  fastify.get('/api/config', async (_req, reply) => {
+    if (!config.databaseUrl) return reply.status(503).send({ error: 'Database not configured' });
+    try {
+      const row = await prisma.dashboardConfig.findUnique({ where: { id: 1 } });
+      if (!row) return reply.status(404).send({ error: 'No config saved yet' });
+      return reply.send({ config: row.config, updatedAt: row.updatedAt });
+    } catch (e) {
+      fastify.log.error(e, '[config] GET /api/config failed');
+      return reply.status(503).send({ error: 'Database error' });
+    }
+  });
+
+  // PUT /api/config — save dashboard config to DB (upserts single row)
+  fastify.put('/api/config', async (req, reply) => {
+    if (!config.databaseUrl) return reply.status(503).send({ error: 'Database not configured' });
+    try {
+      const row = await prisma.dashboardConfig.upsert({
+        where:  { id: 1 },
+        update: { config: req.body as object },
+        create: { id: 1, config: req.body as object },
+      });
+      return reply.send({ ok: true, updatedAt: row.updatedAt });
+    } catch (e) {
+      fastify.log.error(e, '[config] PUT /api/config failed');
+      return reply.status(503).send({ error: 'Database error' });
+    }
+  });
 }

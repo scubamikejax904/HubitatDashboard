@@ -185,4 +185,31 @@ test.describe('Dashboard', () => {
       await expect(page).toHaveURL(/\/group\/environment/)
     }
   })
+
+  test('8. idle auto-sync refreshes data without reloading the page', async ({ page }) => {
+    await mockBaseAPIs(page)
+    const deviceRequests: string[] = []
+
+    await page.route('**/api/devices', async (route) => {
+      deviceRequests.push(route.request().url())
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([SWITCH_DEVICE, CONTACT_DEVICE]),
+      })
+    })
+
+    await page.addInitScript(() => {
+      localStorage.setItem('hubitat-settings', JSON.stringify({
+        state: { idleRefreshMinutes: 1, hubUsername: '', hubPassword: '' },
+        version: 0,
+      }))
+    })
+
+    await page.goto('/group/environment')
+    await page.waitForTimeout(1200)
+
+    await expect(page).toHaveURL(/\/group\/environment/)
+    expect(deviceRequests.length).toBeGreaterThan(1)
+  })
 })

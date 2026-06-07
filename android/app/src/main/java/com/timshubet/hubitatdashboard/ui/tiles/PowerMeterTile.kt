@@ -43,7 +43,7 @@ fun PowerMeterTile(
     var isPending by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    TileShell(title = tile.label, modifier = modifier) {
+    TileShell(title = tile.displayTitle, modifier = modifier) {
         TileValue(
             icon = Icons.Filled.ElectricBolt,
             value = powerStr ?: "—",

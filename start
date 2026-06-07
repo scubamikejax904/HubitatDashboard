@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PID_FILE="$ROOT/.dashboard-pids.json"
+BACKEND_LOG="$ROOT/.dashboard-backend.log"
+FRONTEND_LOG="$ROOT/.dashboard-frontend.log"
+
+printf '\n  Starting Hubitat Dashboard...\n'
+
+# Backend needs a local config file; fail fast with a clear message.
+if [[ ! -f "$ROOT/backend/config.json" ]]; then
+  printf '  ERROR: missing backend/config.json\n' >&2
+  printf '  Copy backend/config.json.example to backend/config.json and fill in your values.\n' >&2
+  exit 1
+fi
+
+# Check if required ports are already in use.
+ports=(3001 5173)
+in_use=()
+for port in "${ports[@]}"; do
+  if command -v ss >/dev/null 2>&1 && ss -ltn "sport = :$port" | awk 'NR>1 {found=1} END {exit !found}'; then
+    in_use+=("$port")
+  elif command -v lsof >/dev/null 2>&1 && lsof -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
+    in_use+=("$port")
+  fi
+done
+
+if ((${#in_use[@]} > 0)); then
+  printf '  WARNING: Port(s) %s already in use. Run ./stop first.\n' "${in_use[*]}" >&2
+  exit 1
+fi
+
+start_service() {
+  local name="$1"
+  local log_file="$2"
+  shift 2
+
+  : > "$log_file"
+  nohup "$@" > "$log_file" 2>&1 &
+  printf '%s %s\n' "$name" "$!"
+}
+
+# Run DB migrations if DATABASE_URL is set
+if [[ -n "${DATABASE_URL:-}" ]]; then
+  printf '  Running database migrations...\n'
+  (cd "$ROOT/backend" && npx prisma migrate deploy 2>&1) || printf '  WARNING: DB migration failed — dashboard config will not be persisted to DB\n' >&2
+fi
+
+backend_pid="$(start_service backend "$BACKEND_LOG" npm run dev --workspace=backend | awk '{print $2}')"
+
+sleep 0.5
+frontend_pid="$(start_service frontend "$FRONTEND_LOG" npm run dev --workspace=frontend -- --host 0.0.0.0 | awk '{print $2}')"
+
+cat > "$PID_FILE" <<EOF
+{
+  "backend": $backend_pid,
+  "frontend": $frontend_pid
+}
+EOF
+
+printf '\n  Backend  -> http://localhost:3001  (PID %s)\n' "$backend_pid"
+printf '  Frontend -> http://localhost:5173  (PID %s)\n' "$frontend_pid"
+printf '\n  Dashboard: http://localhost:5173\n'
+printf '  Run ./stop to shut down both services.\n\n'

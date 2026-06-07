@@ -6,5 +6,6 @@
   "pinHash": "$2b$10$...<run: node -e \"require('bcryptjs').hash('1234',10).then(console.log)\">",
   "postUrl": "http://<THIS_SERVER_IP>:3001/api/webhook",
   "hubUsername": "",
-  "hubPassword": ""
+  "hubPassword": "",
+  "databaseUrl": "mysql://bh:<password>@127.0.0.1:3306/hubitat_dashboard"
 }

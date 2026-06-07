@@ -49,10 +49,10 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
           <div>
             <label className="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
               <RefreshCw size={13} />
-              Idle Auto-Refresh
+              Idle Auto-Sync
             </label>
             <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">
-              Reload the page after this many minutes of inactivity. Set to 0 to disable.
+              Refresh dashboard data after this many minutes of inactivity without reloading the page. Set to 0 to disable.
             </p>
             <div className="flex items-center gap-2">
               <input

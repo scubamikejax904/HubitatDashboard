@@ -5,6 +5,7 @@ import { GroupPage } from './components/GroupPage'
 import { ToastContainer } from './components/ToastContainer'
 import { useSSE } from './hooks/useSSE'
 import { useIdleRefresh } from './hooks/useIdleRefresh'
+import { useConfigSync } from './hooks/useConfigSync'
 
 function GroupPageWrapper() {
   const { groupId } = useParams<{ groupId: string }>()
@@ -14,6 +15,7 @@ function GroupPageWrapper() {
 function App() {
   useSSE()
   useIdleRefresh()
+  useConfigSync()
 
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-gray-900">

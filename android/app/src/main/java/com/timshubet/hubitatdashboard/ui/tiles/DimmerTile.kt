@@ -51,7 +51,7 @@ fun DimmerTile(
     }
 
     TileShell(
-        title = tile.label,
+        title = tile.displayTitle,
         modifier = modifier
     ) {
         Row(

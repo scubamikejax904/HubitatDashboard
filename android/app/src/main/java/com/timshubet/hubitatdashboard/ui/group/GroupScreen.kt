@@ -21,15 +21,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -122,6 +126,8 @@ fun GroupScreen(
     var isRefreshing by remember { mutableStateOf(false) }
     var showDevicePicker by remember { mutableStateOf(false) }
     var typePickTarget by remember { mutableStateOf<Pair<String, DeviceState>?>(null) }
+    /** Tile being title-edited: Pair(groupId, tile) */
+    var titleEditTarget by remember { mutableStateOf<Pair<String, TileConfig>?>(null) }
 
     // Derive stable key list from group tiles
     val tileKeys by remember(group.tiles) {
@@ -171,6 +177,23 @@ fun GroupScreen(
             onDismiss = { typePickTarget = null },
             onSelect = { newType ->
                 groupEditViewModel.setTileTypeOverride(groupId, deviceId, newType)
+            }
+        )
+    }
+
+    titleEditTarget?.let { (grpId, tile) ->
+        TitleEditDialog(
+            currentTitle = tile.title ?: "",
+            deviceLabel = tile.label,
+            onDismiss = { titleEditTarget = null },
+            onConfirm = { newTitle ->
+                val tileId = when {
+                    !tile.deviceId.isNullOrBlank() -> tile.deviceId
+                    tile.tileType == TileType.HUB_VARIABLE && tile.hubVarName != null -> "hub-variable-${tile.hubVarName}"
+                    else -> tile.tileType.name
+                }
+                groupEditViewModel.setTileTitle(grpId, tileId, newTitle)
+                titleEditTarget = null
             }
         )
     }
@@ -309,6 +332,19 @@ fun GroupScreen(
                                                 tint = MaterialTheme.colorScheme.error
                                             )
                                         }
+                                        // Title edit button — bottom-start
+                                        IconButton(
+                                            onClick = { titleEditTarget = groupId to tile },
+                                            modifier = Modifier
+                                                .align(Alignment.BottomStart)
+                                                .size(32.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Edit,
+                                                contentDescription = "Edit title",
+                                                tint = MaterialTheme.colorScheme.tertiary
+                                            )
+                                        }
                                     }
                                     // Show type-change button for real devices only
                                     if (device != null && !tile.deviceId.isNullOrBlank() &&
@@ -332,7 +368,7 @@ fun GroupScreen(
                         }
                         // Subgroup navigation strip at the bottom
                         if (childGroups.isNotEmpty()) {
-                            item(span = { GridItemSpan(maxLineSpan) }) {
+                            items(count = 1, span = { StaggeredGridItemSpan.FullLine }) {
                                 Column {
                                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                                     Text(
@@ -446,4 +482,42 @@ fun GroupScreen(
             }
         }
     }
+}
+
+@Composable
+private fun TitleEditDialog(
+    currentTitle: String,
+    deviceLabel: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    var draft by remember { mutableStateOf(currentTitle) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Tile Title") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = draft,
+                    onValueChange = { draft = it },
+                    label = { Text("Custom title") },
+                    placeholder = { Text(deviceLabel) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "Leave blank to use the device name.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(draft) }) { Text("Save") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
 }

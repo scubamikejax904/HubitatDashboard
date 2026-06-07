@@ -16,7 +16,7 @@ import com.timshubet.hubitatdashboard.ui.tiles.common.TileStatusChip
 fun PresenceTile(tile: TileConfig, device: DeviceState?, modifier: Modifier = Modifier) {
     val isPresent = device?.attributes?.get("presence") == "present"
     val color = if (isPresent) TileTokens.GreenOn else TileTokens.TitleMuted
-    TileShell(title = tile.label, modifier = modifier) {
+    TileShell(title = tile.displayTitle, modifier = modifier) {
         TileStatusChip(
             text = if (isPresent) "Present" else "Away",
             color = color,

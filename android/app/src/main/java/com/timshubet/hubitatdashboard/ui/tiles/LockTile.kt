@@ -22,7 +22,7 @@ fun LockTile(
     val deviceId = tile.deviceId ?: return
     val isLocked = device?.attributes?.get("lock") == "locked"
 
-    TileShell(title = tile.label, modifier = modifier) {
+    TileShell(title = tile.displayTitle, modifier = modifier) {
         TilePill(
             label = if (isLocked) "Locked" else "Unlocked",
             isOn = isLocked,

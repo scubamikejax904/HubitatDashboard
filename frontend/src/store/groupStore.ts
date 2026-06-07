@@ -15,6 +15,7 @@ export interface GroupExportPayload {
   tileTypeOverrides: Record<string, Record<string, string>> | Record<string, string>
   tileOrder: Record<string, string[]>
   multiTileConfigs: Record<string, MultiTileConfig>
+  tileTitleOverrides?: Record<string, Record<string, string>>
 }
 
 export interface CustomGroup {
@@ -42,6 +43,8 @@ interface GroupStore {
   tileOrder: Record<string, string[]>
   /** Config for multi-device panel tiles, keyed by synthetic tile ID (__multi-<ts>__). */
   multiTileConfigs: Record<string, MultiTileConfig>
+  /** Per-group user-editable tile titles: groupId → deviceId/syntheticId → display title. */
+  tileTitleOverrides: Record<string, Record<string, string>>
 
   addCustomGroup: (group: CustomGroup, parentId?: string) => void
   removeCustomGroup: (id: string) => void
@@ -56,6 +59,8 @@ interface GroupStore {
   moveSubGroupDown: (parentId: string, id: string) => void
   setTileTypeOverride: (groupId: string, deviceId: string, tileType: TileType) => void
   setTileOrder: (groupId: string, orderedIds: string[]) => void
+  /** Sets the user-editable display title for a tile within a group. Passing '' clears it. */
+  setTileTitle: (groupId: string, deviceId: string, title: string) => void
   /** Creates a new multi-device panel tile in a group. */
   addMultiTile: (groupId: string, tileId: string, config: MultiTileConfig) => void
   /** Updates cols (and/or deviceIds) for an existing multi-tile. */
@@ -141,6 +146,7 @@ export const useGroupStore = create<GroupStore>()(
       tileTypeOverrides: {},
       tileOrder: {},
       multiTileConfigs: {},
+      tileTitleOverrides: {},
 
       addCustomGroup: (group, parentId) =>
         set((s) => {
@@ -280,6 +286,22 @@ export const useGroupStore = create<GroupStore>()(
       setTileOrder: (groupId, orderedIds) =>
         set((s) => ({ tileOrder: { ...s.tileOrder, [groupId]: orderedIds } })),
 
+      setTileTitle: (groupId, deviceId, title) =>
+        set((s) => {
+          const groupTitles = { ...(s.tileTitleOverrides[groupId] ?? {}) }
+          if (title.trim()) {
+            groupTitles[deviceId] = title.trim()
+          } else {
+            delete groupTitles[deviceId]
+          }
+          return {
+            tileTitleOverrides: {
+              ...s.tileTitleOverrides,
+              [groupId]: groupTitles,
+            },
+          }
+        }),
+
       addMultiTile: (groupId, tileId, config) =>
         set((s) => ({
           multiTileConfigs: { ...s.multiTileConfigs, [tileId]: config },
@@ -361,6 +383,7 @@ export const useGroupStore = create<GroupStore>()(
             tileTypeOverrides,
             tileOrder:         data.tileOrder,
             multiTileConfigs:  (data as GroupExportPayload & { multiTileConfigs?: Record<string, MultiTileConfig> }).multiTileConfigs ?? {},
+            tileTitleOverrides: data.tileTitleOverrides ?? {},
           }
         }),
     }),
@@ -391,7 +414,7 @@ export const useGroupStore = create<GroupStore>()(
           }
         }
 
-        return { ...current, ...stored, groupOrder: merged, tileTypeOverrides, multiTileConfigs: stored.multiTileConfigs ?? {} }
+        return { ...current, ...stored, groupOrder: merged, tileTypeOverrides, multiTileConfigs: stored.multiTileConfigs ?? {}, tileTitleOverrides: stored.tileTitleOverrides ?? {} }
       },
     },
   ),

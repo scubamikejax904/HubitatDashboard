@@ -27,7 +27,7 @@ fun ButtonTile(
     var isPending by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    TileShell(title = tile.label, modifier = modifier) {
+    TileShell(title = tile.displayTitle, modifier = modifier) {
         TilePill(
             label = "Push",
             isOn = true, // button is always emphasized as actionable

@@ -70,4 +70,7 @@ class GroupEditViewModel @Inject constructor(
 
     fun setTileTypeOverride(groupId: String, deviceId: String, tileType: TileType) =
         groupRepository.setTileTypeOverride(groupId, deviceId, tileType)
+
+    fun setTileTitle(groupId: String, deviceId: String, title: String) =
+        groupRepository.setTileTitle(groupId, deviceId, title)
 }

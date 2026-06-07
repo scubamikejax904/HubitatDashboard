@@ -42,7 +42,7 @@ fun HsmTile(
     val color = hsmColor(hsmStatus)
 
     TileShell(
-        title = tile.label,
+        title = tile.displayTitle,
         modifier = modifier,
         titleTrailing = {
             Icon(

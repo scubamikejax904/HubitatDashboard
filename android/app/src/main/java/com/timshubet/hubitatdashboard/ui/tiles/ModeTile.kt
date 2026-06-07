@@ -26,7 +26,7 @@ fun ModeTile(
     val activeMode = modes.firstOrNull { it.active }
 
     TileShell(
-        title = tile.label,
+        title = tile.displayTitle,
         modifier = modifier,
         titleTrailing = {
             Icon(

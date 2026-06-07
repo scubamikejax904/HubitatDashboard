@@ -22,4 +22,5 @@ export interface Config {
   postUrl: string;
   hubUsername?: string;
   hubPassword?: string;
+  databaseUrl?: string;
 }
