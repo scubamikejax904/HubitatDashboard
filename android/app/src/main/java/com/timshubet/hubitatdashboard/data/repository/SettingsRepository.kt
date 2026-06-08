@@ -20,6 +20,10 @@ class SettingsRepository @Inject constructor(
         const val KEY_DEFAULT_GROUP_ID = "default_group_id"
         const val KEY_HUB_USERNAME = "hub_username"
         const val KEY_HUB_PASSWORD = "hub_password"
+        const val KEY_GPS_TRACKING_ENABLED = "gps_tracking_enabled"
+        const val KEY_GPS_TRACKING_INTERVAL = "gps_tracking_interval"
+        const val KEY_GPS_APPS_SCRIPT_URL = "gps_apps_script_url"
+        const val KEY_GPS_DEVICE_NAME = "gps_device_name"
     }
 
     val localHubIp: String get() = prefs.getString(KEY_LOCAL_HUB_IP, "") ?: ""
@@ -33,6 +37,10 @@ class SettingsRepository @Inject constructor(
     val defaultGroupId: String get() = prefs.getString(KEY_DEFAULT_GROUP_ID, "environment") ?: "environment"
     val hubUsername: String get() = prefs.getString(KEY_HUB_USERNAME, "") ?: ""
     val hubPassword: String get() = prefs.getString(KEY_HUB_PASSWORD, "") ?: ""
+    val gpsTrackingEnabled: Boolean get() = prefs.getBoolean(KEY_GPS_TRACKING_ENABLED, false)
+    val gpsTrackingInterval: Int get() = prefs.getInt(KEY_GPS_TRACKING_INTERVAL, 15)
+    val gpsAppsScriptUrl: String get() = prefs.getString(KEY_GPS_APPS_SCRIPT_URL, "") ?: ""
+    val gpsDeviceName: String get() = prefs.getString(KEY_GPS_DEVICE_NAME, "") ?: ""
 
     fun setLocalHubIp(value: String) = prefs.edit().putString(KEY_LOCAL_HUB_IP, value).apply()
     fun setMakerAppId(value: String) = prefs.edit().putString(KEY_MAKER_APP_ID, value).apply()
@@ -45,6 +53,12 @@ class SettingsRepository @Inject constructor(
     fun setDefaultGroupId(id: String) = prefs.edit().putString(KEY_DEFAULT_GROUP_ID, id).apply()
     fun setHubUsername(value: String) = prefs.edit().putString(KEY_HUB_USERNAME, value).apply()
     fun setHubPassword(value: String) = prefs.edit().putString(KEY_HUB_PASSWORD, value).apply()
+    fun setGpsTrackingEnabled(enabled: Boolean) = prefs.edit().putBoolean(KEY_GPS_TRACKING_ENABLED, enabled).apply()
+    fun setGpsTrackingInterval(minutes: Int) = prefs.edit().putInt(KEY_GPS_TRACKING_INTERVAL, minutes).apply()
+    fun setGpsAppsScriptUrl(url: String) = prefs.edit().putString(KEY_GPS_APPS_SCRIPT_URL, url).apply()
+    fun setGpsDeviceName(name: String) = prefs.edit().putString(KEY_GPS_DEVICE_NAME, name).apply()
+
+    fun isGpsTrackerConfigured(): Boolean = gpsAppsScriptUrl.isNotBlank() && gpsDeviceName.isNotBlank()
 
     fun getDarkMode(): String = themeOverride
     fun setDarkMode(value: String) = setThemeOverride(value)

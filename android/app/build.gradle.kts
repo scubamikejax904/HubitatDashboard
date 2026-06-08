@@ -61,5 +61,7 @@ dependencies {
     implementation(libs.security.crypto)
     implementation(libs.bcrypt)
     implementation(libs.coil.compose)
+    implementation(libs.play.services.location)
+    implementation(libs.kotlinx.coroutines.play)
     debugImplementation(libs.compose.ui.tooling)
 }

@@ -26,6 +26,7 @@ import com.timshubet.hubitatdashboard.viewmodel.SettingsViewModel
 fun SettingsScreen(
     onSaveSuccess: () -> Unit,
     onRingListenerClick: () -> Unit = {},
+    onGpsTrackerClick: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -246,6 +247,11 @@ fun SettingsScreen(
                 onClick = onRingListenerClick,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Ring Listener →") }
+
+            OutlinedButton(
+                onClick = onGpsTrackerClick,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("GPS Tracker →") }
         }
     }
 
