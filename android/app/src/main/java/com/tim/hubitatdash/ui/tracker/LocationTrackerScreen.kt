@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -270,7 +271,10 @@ fun LocationTrackerScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Button(
-                    onClick = { viewModel.testNow(context) },
+                    onClick = {
+                        Toast.makeText(context, "Test started…", Toast.LENGTH_SHORT).show()
+                        viewModel.testNow(context)
+                    },
                     modifier = Modifier.weight(1f),
                     enabled = !uiState.isTesting
                         && uiState.appsScriptUrl.isNotBlank()

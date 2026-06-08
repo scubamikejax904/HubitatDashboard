@@ -197,6 +197,8 @@ class LocationTrackerService : Service() {
             put("longitude", longitude)
             put("device", device)
         }
+        
+        Log.d(TAG, "POSTing to $url with body: $json")
 
         val body = json.toString().toRequestBody("application/json".toMediaType())
         val request = Request.Builder()
@@ -204,11 +206,17 @@ class LocationTrackerService : Service() {
             .post(body)
             .build()
 
-        val response = okHttpClient.newCall(request).execute()
-        response.use {
-            if (!it.isSuccessful) {
-                Log.w(TAG, "Apps Script returned HTTP ${it.code}: ${it.body?.string()?.take(200)}")
+        try {
+            val response = okHttpClient.newCall(request).execute()
+            response.use {
+                if (it.isSuccessful) {
+                    Log.d(TAG, "Apps Script returned HTTP ${it.code} - success")
+                } else {
+                    Log.w(TAG, "Apps Script returned HTTP ${it.code}: ${it.body?.string()?.take(200)}")
+                }
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to POST location: ${e.message}", e)
         }
     }
 

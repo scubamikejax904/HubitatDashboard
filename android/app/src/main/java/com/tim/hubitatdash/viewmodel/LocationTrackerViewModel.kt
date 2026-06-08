@@ -108,13 +108,27 @@ class LocationTrackerViewModel @Inject constructor(
     }
 
     fun testNow(context: Context) {
+        Log.d(TAG, "testNow called - url='${settingsRepository.gpsAppsScriptUrl}' device='${settingsRepository.gpsDeviceName}'")
         if (!settingsRepository.isGpsTrackerConfigured()) {
-            Log.w(TAG, "Cannot test — tracker not configured")
+            Log.w(TAG, "Cannot test — tracker not configured (url blank: ${settingsRepository.gpsAppsScriptUrl.isBlank()}, device blank: ${settingsRepository.gpsDeviceName.isBlank()})")
             return
         }
+        Log.d(TAG, "Test clicked — clearing location history and starting service")
         _uiState.value = _uiState.value.copy(isTesting = true)
-        val intent = Intent(context, LocationTrackerService::class.java)
-        ContextCompat.startForegroundService(context, intent)
+        
+        // Clear last saved location so test always posts regardless of distance
+        context.getSharedPreferences("gps_tracker_prefs", Context.MODE_PRIVATE).edit()
+            .remove("last_latitude")
+            .remove("last_longitude")
+            .apply()
+        
+        try {
+            val intent = Intent(context, LocationTrackerService::class.java)
+            ContextCompat.startForegroundService(context, intent)
+            Log.d(TAG, "Foreground service started")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start service: ${e.message}", e)
+        }
         // Reset testing flag after a delay
         viewModelScope.launch {
             delay(8000)
@@ -124,11 +138,19 @@ class LocationTrackerViewModel @Inject constructor(
 
     private fun loadState(): TrackerUiState {
         val context = getApplication<Application>()
+        var deviceName = settingsRepository.gpsDeviceName
+        
+        // Auto-populate device name with Build.MODEL on first load if not set
+        if (deviceName.isBlank()) {
+            deviceName = Build.MODEL
+            settingsRepository.setGpsDeviceName(deviceName)
+        }
+        
         return TrackerUiState(
             enabled = settingsRepository.gpsTrackingEnabled,
             interval = settingsRepository.gpsTrackingInterval,
             appsScriptUrl = settingsRepository.gpsAppsScriptUrl,
-            deviceName = settingsRepository.gpsDeviceName.ifBlank { Build.MODEL },
+            deviceName = deviceName,
             hasFineLocation = ContextCompat.checkSelfPermission(
                 context, Manifest.permission.ACCESS_FINE_LOCATION
             ) == PackageManager.PERMISSION_GRANTED,

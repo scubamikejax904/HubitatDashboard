@@ -34,13 +34,26 @@ class AlarmScheduler(private val context: Context) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        alarmManager.setExactAndAllowWhileIdle(
-            AlarmManager.ELAPSED_REALTIME_WAKEUP,
-            triggerAtMs,
-            pendingIntent
-        )
-
-        Log.d(TAG, "Alarm scheduled in ${effectiveInterval} min (trigger at $triggerAtMs)")
+        try {
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                triggerAtMs,
+                pendingIntent
+            )
+            Log.d(TAG, "Alarm scheduled in ${effectiveInterval} min (trigger at $triggerAtMs)")
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Failed to set exact alarm (permission denied or S_ALL policy): ${e.message}, falling back to setAndAllowWhileIdle")
+            try {
+                alarmManager.setAndAllowWhileIdle(
+                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                    triggerAtMs,
+                    pendingIntent
+                )
+                Log.d(TAG, "Fallback alarm scheduled (inexact) in ${effectiveInterval} min")
+            } catch (e2: Exception) {
+                Log.e(TAG, "Failed to schedule alarm even with fallback: ${e2.message}", e2)
+            }
+        }
     }
 
     /**
