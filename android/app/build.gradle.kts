@@ -7,11 +7,11 @@ plugins {
 }
 
 android {
-    namespace = "com.timshubet.hubitatdashboard"
+    namespace = "com.tim.hubitatdash"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.timshubet.hubitatdashboard"
+        applicationId = "com.tim.hubitatdash"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
