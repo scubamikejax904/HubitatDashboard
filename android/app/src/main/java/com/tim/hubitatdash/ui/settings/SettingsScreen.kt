@@ -248,10 +248,16 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Ring Listener →") }
 
+            Spacer(modifier = Modifier.size(12.dp))
+
             OutlinedButton(
                 onClick = onGpsTrackerClick,
                 modifier = Modifier.fillMaxWidth()
-            ) { Text("GPS Tracker →") }
+            ) {
+                Text("GPS Tracker Settings →")
+            }
+
+            Spacer(modifier = Modifier.size(24.dp))
         }
     }
 
