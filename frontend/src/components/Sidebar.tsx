@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Sun, Circle, X, ChevronUp, ChevronDown, Plus, Download, Upload, CloudUpload, CloudDownload, ChevronsLeft, ChevronsRight } from 'lucide-react'
+import { Sun, Circle, X, ChevronUp, ChevronDown, Plus, Download, Upload, CloudUpload, CloudDownload, ChevronsLeft, ChevronsRight, MapPin } from 'lucide-react'
 import { useConnectionStatus, useSidebarOpen, useSidebarCollapsed, useDeviceStore } from '../store/deviceStore'
 import { useGroupStore } from '../store/groupStore'
 import type { GroupExportPayload } from '../store/groupStore'
@@ -266,6 +266,24 @@ export function Sidebar() {
             <Plus size={16} />
             {!sidebarCollapsed && <span>New Group</span>}
           </button>
+          {/* GPS Track link */}
+          <NavLink
+            to="/gps-map"
+            onClick={() => setSidebarOpen(false)}
+            title={sidebarCollapsed ? 'GPS Track' : undefined}
+            className={({ isActive }) =>
+              `flex items-center gap-3 py-2.5 text-sm transition-colors min-w-0 ${
+                sidebarCollapsed ? 'justify-center px-0' : 'pl-4 pr-2'
+              } ${
+                isActive
+                  ? 'bg-gray-700 text-white'
+                  : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+              }`
+            }
+          >
+            <MapPin size={16} className="flex-shrink-0" />
+            {!sidebarCollapsed && <span className="truncate">GPS Track</span>}
+          </NavLink>
         </nav>
 
         <div className={`py-3 border-t border-gray-700 ${sidebarCollapsed ? 'px-0' : 'px-4'}`}>

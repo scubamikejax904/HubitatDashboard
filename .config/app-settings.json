@@ -1,0 +1,10 @@
+{
+  "googleSheets": {
+    "sheetId": "YOUR_SHEET_ID_HERE",
+    "range": "GPS_Log!A:C",
+    "serviceAccountKeyPath": "/path/to/your/service-account-key.json"
+  },
+  "googleMaps": {
+    "apiKey": "YOUR_GOOGLE_MAPS_API_KEY_HERE"
+  }
+}

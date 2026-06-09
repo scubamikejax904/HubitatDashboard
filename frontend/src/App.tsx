@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, useParams } from 'react-router-dom'
 import { Sidebar } from './components/Sidebar'
 import { SystemBar } from './components/SystemBar'
 import { GroupPage } from './components/GroupPage'
+import { GpsMapPage } from './components/GpsMapPage'
 import { ToastContainer } from './components/ToastContainer'
 import { useSSE } from './hooks/useSSE'
 import { useIdleRefresh } from './hooks/useIdleRefresh'
@@ -26,6 +27,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/group/environment" replace />} />
             <Route path="/group/:groupId" element={<GroupPageWrapper />} />
+            <Route path="/gps-map" element={<GpsMapPage />} />
             <Route path="*" element={
               <div className="p-6 text-gray-500 dark:text-gray-400">Page not found</div>
             } />

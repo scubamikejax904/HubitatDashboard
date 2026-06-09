@@ -7,5 +7,8 @@
   "postUrl": "http://<THIS_SERVER_IP>:3001/api/webhook",
   "hubUsername": "",
   "hubPassword": "",
-  "databaseUrl": "mysql://bh:<password>@127.0.0.1:3306/hubitat_dashboard"
+  "databaseUrl": "mysql://bh:***/127.0.0.1:3306/hubitat_dashboard",
+  "gpsMap": {
+    "csvUrl": "https://docs.google.com/spreadsheets/d/1EGNmf9XvinmTE5EGZUOBjaoeU1HIvBLHlz33TN0KfcU/export?format=csv&gid=0"
+  }
 }

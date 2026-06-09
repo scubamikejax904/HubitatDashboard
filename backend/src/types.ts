@@ -13,6 +13,17 @@ export interface SSEEvent {
   timestamp: number;
 }
 
+export interface GpsConfig {
+  // Optional override for the public CSV URL (defaults to Google Sheets export)
+  csvUrl?: string;
+}
+
+export interface GpsDataPoint {
+  timestamp: string;
+  lat: number;
+  long: number;
+}
+
 export interface Config {
   hubIP: string;
   makerAppId: string;
@@ -23,4 +34,5 @@ export interface Config {
   hubUsername?: string;
   hubPassword?: string;
   databaseUrl?: string;
+  gpsMap?: GpsConfig;
 }

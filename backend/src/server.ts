@@ -4,6 +4,7 @@ import formbody from '@fastify/formbody';
 import { config } from './config.js';
 import { proxyRoutes } from './proxy.js';
 import { webhookRoutes } from './webhook.js';
+import { gpsRoutes } from './gpsRoutes.js';
 import { clientCount } from './sse.js';
 import { getAllDevices, setAllDevices } from './cache.js';
 
@@ -13,6 +14,7 @@ await fastify.register(cors, { origin: true });
 await fastify.register(formbody);
 await fastify.register(proxyRoutes);
 await fastify.register(webhookRoutes);
+await fastify.register(gpsRoutes, { prefix: '/api/gps-track' });
 
 // Health check
 fastify.get('/api/health', async () => ({
