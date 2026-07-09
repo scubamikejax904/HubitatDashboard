@@ -274,17 +274,47 @@ class RingNotificationListener : NotificationListenerService() {
         // combined string like "There is a Person at your Back Door | Back Door".
         val candidates = if (textLines.isNotEmpty()) textLines else singleFields
 
-        var anyForwarded = false
+        var anyMatched = false
         for (candidate in candidates) {
             val matchedTrigger = FORWARD_TRIGGERS.firstOrNull { candidate.contains(it, ignoreCase = true) }
             if (matchedTrigger != null) {
+                anyMatched = true
+                if (isRecentDuplicate(candidate)) {
+                    Log.d(TAG, "Duplicate forward suppressed (within ${FORWARD_DEDUP_WINDOW_MS / 1000}s): \"$candidate\"")
+                    ringListenerRepository.addEvent(
+                        RingEvent(
+                            timestamp = Instant.now(),
+                            notificationText = candidate,
+                            url = "",
+                            success = false,
+                            httpCode = null,
+                            error = "Duplicate suppressed (same event re-posted by Ring)"
+                        )
+                    )
+                    continue
+                }
+                // Muted: log the match but don't forward to Hubitat
+                if (ringListenerRepository.isMuted.value) {
+                    Log.d(TAG, "Forward muted — logging only for \"$candidate\"")
+                    ringListenerRepository.addEvent(
+                        RingEvent(
+                            timestamp = Instant.now(),
+                            notificationText = candidate,
+                            url = "",
+                            success = false,
+                            httpCode = null,
+                            error = "Muted (log only)"
+                        )
+                    )
+                    logMirrorUploader.mirrorRingLog(ringListenerRepository.events.value)
+                    continue
+                }
                 Log.d(TAG, "Trigger \"$matchedTrigger\" matched in \"$candidate\" — forwarding")
                 fireHubitatRequest(candidate)
-                anyForwarded = true
             }
         }
 
-        if (!anyForwarded) {
+        if (!anyMatched) {
             // Still log it so the Ring Listener screen shows what Ring is actually sending
             ringListenerRepository.addEvent(
                 RingEvent(
@@ -298,6 +328,30 @@ class RingNotificationListener : NotificationListenerService() {
             )
             logMirrorUploader.mirrorRingLog(ringListenerRepository.events.value)
         }
+    }
+
+    /**
+     * Ring frequently posts multiple notifications for a single real-world detection
+     * (skeleton post + updated post, group-summary bundling, replay of active
+     * notifications on listener reconnect). Without this check, every one of those
+     * posts would forward independently since fireHubitatRequest() appends a unique
+     * timestamp specifically to bypass Hubitat's own same-value suppression.
+     * Returns true if an identical candidate string was already forwarded within
+     * the dedup window (matches the Hubitat app's default notification cooldown).
+     */
+    private fun isRecentDuplicate(candidate: String): Boolean {
+        val key = candidate.trim().lowercase().replace(Regex("\\s+"), " ")
+        val now = System.currentTimeMillis()
+        val lastForwarded = recentForwards[key]
+        if (lastForwarded != null && now - lastForwarded < FORWARD_DEDUP_WINDOW_MS) {
+            return true
+        }
+        recentForwards[key] = now
+        // Opportunistically prune stale entries so the map doesn't grow unbounded.
+        if (recentForwards.size > 50) {
+            recentForwards.entries.removeIf { now - it.value > FORWARD_DEDUP_WINDOW_MS }
+        }
+        return false
     }
 
     private fun handleHubitatNotification(sbn: StatusBarNotification) {
@@ -389,6 +443,11 @@ class RingNotificationListener : NotificationListenerService() {
         private const val HUBITAT_PACKAGE = "com.hubitat.mobile"
         private val FORWARD_TRIGGERS = listOf("person", "someone", "package")
         private const val HUB_VARIABLE_NAME = "RingPersonDetected"
+
+        // Process-lifetime dedup cache for forwarded notification text; static so it
+        // survives service instance recreation (e.g. listener rebind) within the same process.
+        private val recentForwards = java.util.concurrent.ConcurrentHashMap<String, Long>()
+        private const val FORWARD_DEDUP_WINDOW_MS = 60_000L
     }
 }
 

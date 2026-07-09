@@ -20,6 +20,12 @@ class RingListenerViewModel @Inject constructor(
 
     val events: StateFlow<List<RingEvent>> = ringListenerRepository.events
     val serviceConnected: StateFlow<Boolean> = ringListenerRepository.serviceConnected
+    val isMuted: StateFlow<Boolean> = ringListenerRepository.isMuted
+
+    fun toggleMuted() {
+        val current = ringListenerRepository.isMuted.value
+        ringListenerRepository.setMuted(!current)
+    }
 
     private val _permissionGranted = MutableStateFlow(false)
     val permissionGranted: StateFlow<Boolean> = _permissionGranted.asStateFlow()

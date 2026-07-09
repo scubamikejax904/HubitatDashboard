@@ -18,8 +18,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Circle
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -30,6 +32,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -70,6 +73,7 @@ fun RingListenerScreen(
     val permissionGranted by viewModel.permissionGranted.collectAsStateWithLifecycle()
     val serviceConnected by viewModel.serviceConnected.collectAsStateWithLifecycle()
     val events by viewModel.events.collectAsStateWithLifecycle()
+    val isMuted by viewModel.isMuted.collectAsStateWithLifecycle()
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -127,6 +131,9 @@ fun RingListenerScreen(
             item {
                 ServiceHealthCard(connected = serviceConnected)
             }
+            item {
+                MuteToggleCard(isMuted = isMuted, onToggle = viewModel::toggleMuted)
+            }
 
             item { HorizontalDivider() }
 
@@ -152,7 +159,7 @@ fun RingListenerScreen(
             if (events.isEmpty()) {
                 item {
                     Text(
-                        text = "No events yet. All Ring notifications will appear here — forwarded ones show the hub response, others show why they were skipped.",
+                        text = """No events yet. All Ring notifications will appear here — forwarded ones show the hub response, others show why they were skipped."""",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -247,6 +254,47 @@ private fun ServiceHealthCard(connected: Boolean) {
 }
 
 @Composable
+private fun MuteToggleCard(isMuted: Boolean, onToggle: () -> Unit) {
+    val containerColorValue = if (isMuted) Color(0xFFFFF8E1) else Color(0xFFE8F5E9)
+    val contentColor = if (isMuted) Color(0xFFF57F17) else Color(0xFF2E7D32)
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = containerColorValue)
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = if (isMuted) Icons.Default.Block else Icons.Default.Wifi,
+                contentDescription = null,
+                tint = contentColor,
+                modifier = Modifier.size(20.dp)
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (isMuted) "Forward: Muted (log only)" else "Forward: Active",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = contentColor
+                )
+                Text(
+                    text = if (isMuted) "Notifications logged but not sent to Hubitat" else "Detections forwarded to Hubitat hub",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = contentColor
+                )
+            }
+            Switch(
+                checked = isMuted,
+                onCheckedChange = { onToggle() }
+            )
+        }
+    }
+}
+
+@Composable
 private fun RingEventCard(event: RingEvent) {
     val successColor = Color(0xFF2E7D32)
     val errorColor = MaterialTheme.colorScheme.error
@@ -270,12 +318,16 @@ private fun RingEventCard(event: RingEvent) {
                     fontFamily = FontFamily.Monospace
                 )
                 Text(
-                    text = if (event.success) "✓ HTTP ${event.httpCode}"
-                           else if (event.url.isBlank()) "— skipped"
-                           else "✗ ${event.error ?: "Failed"}",
+                    text = when {
+                        event.success -> "✓ HTTP ${event.httpCode}"
+                        event.error?.startsWith("Muted") == true -> "🔇 muted (log only)"
+                        event.url.isBlank() -> "— skipped"
+                        else -> "✗ ${event.error ?: "Failed"}"
+                    },
                     style = MaterialTheme.typography.labelMedium,
                     color = when {
                         event.success    -> successColor
+                        event.error?.startsWith("Muted") == true -> Color(0xFFF57F17)
                         event.url.isBlank() -> MaterialTheme.colorScheme.onSurfaceVariant
                         else             -> errorColor
                     },
@@ -312,4 +364,3 @@ private fun formatRingLog(events: List<RingEvent>): String = buildString {
         }
     }
 }
-
