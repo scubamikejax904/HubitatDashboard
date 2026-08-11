@@ -30,6 +30,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.tim.hubitatdash.ui.group.GroupScreen
+import com.tim.hubitatdash.ui.gpsmap.GpsMapScreen
 import com.tim.hubitatdash.ui.hubitat.HubitatNotificationScreen
 import com.tim.hubitatdash.ui.logs.AllNotificationsScreen
 import com.tim.hubitatdash.ui.ring.RingListenerScreen
@@ -97,16 +98,25 @@ fun MainScreen(
     val resolvedGroups by groupEditViewModel.resolvedGroups.collectAsState()
     val customGroups by groupEditViewModel.customGroups.collectAsState()
     val defaultGroupId by groupEditViewModel.defaultGroupId.collectAsState()
+    val hasCustomGroups = customGroups.isNotEmpty()
 
     val showEditToggle = currentRoute.startsWith("group/")
 
-    val startDestination = if (isConfigured) NavRoutes.group(defaultGroupId) else NavRoutes.SETTINGS
+    // If the default group doesn't exist in resolved groups (e.g. fresh install),
+    // prefer the first resolved group that actually exists, then fall back to SETTINGS.
+    val effectiveDefaultGroupId = if (hasCustomGroups) {
+        defaultGroupId
+    } else {
+        resolvedGroups.firstOrNull()?.id ?: ""
+    }
+
+    val startDestination = if (isConfigured) NavRoutes.group(effectiveDefaultGroupId) else NavRoutes.SETTINGS
 
     // Navigate to the default group whenever edit mode is turned off
     var wasEditing by remember { mutableStateOf(false) }
     LaunchedEffect(isEditMode) {
         if (wasEditing && !isEditMode) {
-            navController.navigate(NavRoutes.group(defaultGroupId)) {
+            navController.navigate(NavRoutes.group(effectiveDefaultGroupId)) {
                 launchSingleTop = true
             }
         }
@@ -121,6 +131,7 @@ fun MainScreen(
             NavRoutes.HUBITAT_LISTENER -> "Hubitat Notifications"
             NavRoutes.ALL_LOGS -> "All Notifications"
             NavRoutes.GPS_TRACKER -> "GPS Tracker"
+            NavRoutes.GPS_MAP -> "GPS Map"
             else -> "Hubitat Dashboard"
         }
 
@@ -132,6 +143,7 @@ fun MainScreen(
 
     ModalNavigationDrawer(
         drawerState = drawerState,
+        gesturesEnabled = currentRoute != NavRoutes.GPS_MAP,
         drawerContent = {
             GroupDrawer(
                 currentGroupId = currentGroupId,
@@ -160,7 +172,7 @@ fun MainScreen(
                 )
             },
             bottomBar = {
-                if (currentRoute != NavRoutes.SETTINGS && currentRoute != NavRoutes.RING_LISTENER && currentRoute != NavRoutes.HUBITAT_LISTENER && currentRoute != NavRoutes.ALL_LOGS && currentRoute != NavRoutes.GPS_TRACKER) {
+                if (currentRoute != NavRoutes.SETTINGS && currentRoute != NavRoutes.RING_LISTENER && currentRoute != NavRoutes.HUBITAT_LISTENER && currentRoute != NavRoutes.ALL_LOGS && currentRoute != NavRoutes.GPS_TRACKER && currentRoute != NavRoutes.GPS_MAP && hasCustomGroups) {
                     GroupBottomNav(
                         currentGroupId = currentGroupId,
                         onGroupSelected = { navController.navigate(NavRoutes.group(it)) },
@@ -192,12 +204,15 @@ fun MainScreen(
                             SettingsScreen(
                                 onSaveSuccess = {
                                     viewModel.refresh()
-                                    navController.navigate(NavRoutes.group(defaultGroupId)) {
+                                    navController.navigate(NavRoutes.group(effectiveDefaultGroupId)) {
                                         popUpTo(NavRoutes.SETTINGS) { inclusive = true }
                                     }
                                 },
                                 onRingListenerClick = {
                                     navController.navigate(NavRoutes.RING_LISTENER)
+                                },
+                                onGpsMapClick = {
+                                    navController.navigate(NavRoutes.GPS_MAP)
                                 },
                                 onGpsTrackerClick = {
                                     navController.navigate(NavRoutes.GPS_TRACKER)
@@ -224,8 +239,13 @@ fun MainScreen(
                                 onNavigateBack = { navController.popBackStack(startDestination, false) }
                             )
                         }
+                        composable(NavRoutes.GPS_MAP) {
+                            GpsMapScreen(
+                                onNavigateBack = { navController.popBackStack(startDestination, false) }
+                            )
+                        }
                         composable(NavRoutes.GROUP_PATTERN) { backStackEntry ->
-                            val groupId = backStackEntry.arguments?.getString("groupId") ?: "environment"
+                            val groupId = backStackEntry.arguments?.getString("groupId") ?: ""
                             GroupScreen(
                                 groupId = groupId,
                                 viewModel = viewModel,
@@ -239,4 +259,3 @@ fun MainScreen(
         }
     }
 }
-

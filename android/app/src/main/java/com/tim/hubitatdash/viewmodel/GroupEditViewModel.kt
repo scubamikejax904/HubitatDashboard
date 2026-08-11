@@ -26,8 +26,24 @@ class GroupEditViewModel @Inject constructor(
     private val _isEditMode = MutableStateFlow(false)
     val isEditMode: StateFlow<Boolean> = _isEditMode.asStateFlow()
 
-    private val _defaultGroupId = MutableStateFlow(settingsRepository.defaultGroupId)
+    private val _defaultGroupId = MutableStateFlow(resolveInitialDefaultGroupId())
     val defaultGroupId: StateFlow<String> = _defaultGroupId.asStateFlow()
+
+    /** If the default is still the factory value (empty), auto-select the first custom
+     *  group named "Main" (case-insensitive), or the first custom group if "Main" isn't found.
+     *  Falls back to empty when no custom groups exist at all. */
+    private fun resolveInitialDefaultGroupId(): String {
+        val saved = settingsRepository.defaultGroupId
+        if (saved.isEmpty()) {
+            val customGroups = groupRepository.customGroupsRaw
+            val preferred = customGroups.firstOrNull { it.displayName.equals("Main", ignoreCase = true) }
+                ?: customGroups.firstOrNull()
+            if (preferred != null) return preferred.id
+            // No custom groups — pick first available resolved group
+            return groupRepository.resolvedGroupsFlow.value.firstOrNull()?.id ?: ""
+        }
+        return saved
+    }
 
     val resolvedGroups: StateFlow<List<GroupConfig>> = groupRepository.resolvedGroupsFlow
     val customGroups: StateFlow<List<CustomGroupData>> = groupRepository.customGroups

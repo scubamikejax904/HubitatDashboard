@@ -63,5 +63,6 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.play.services.location)
     implementation(libs.kotlinx.coroutines.play)
+    implementation(libs.osmdroid.android)
     debugImplementation(libs.compose.ui.tooling)
 }

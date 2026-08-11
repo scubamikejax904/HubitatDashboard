@@ -44,8 +44,9 @@
    - [Subgroups](#93-subgroups)
    - [Rearranging and Removing Tiles](#94-rearranging-and-removing-tiles)
 10. [Understanding Tile Types](#10-understanding-tile-types)
-11. [Syncing Between Web and Android](#11-syncing-between-web-and-android)
-12. [Troubleshooting](#12-troubleshooting)
+11. [Android App — GPS Tracking Setup](#11-android-app--gps-tracking-setup)
+12. [Syncing Between Web and Android](#12-syncing-between-web-and-android)
+13. [Troubleshooting](#13-troubleshooting)
 
 ---
 
@@ -544,7 +545,18 @@ When you add a device, the app automatically picks the best tile type for it bas
 
 ---
 
-## 11. Syncing Between Web and Android
+## 11. Android App — GPS Tracking Setup
+
+The Android app can display your real-time location on a map. This feature pulls data from a public Google Sheet.
+
+1. Ensure your GPS tracking source is logging coordinates to a Google Sheet.
+2. The sheet must be "Published to the web" (File > Share > Publish to web).
+3. The backend is already configured with the required sheet ID, but you should ensure your log format contains columns labeled "timestamp", "lat", and "long".
+4. In the Android app, access the GPS map from the main navigation menu to view your location.
+
+---
+
+## 12. Syncing Between Web and Android
 
 Your group and tile configuration can be shared between the web app and Android app.
 
@@ -569,7 +581,7 @@ Both apps support pushing and pulling the config file directly through the Hubit
 
 ---
 
-## 12. Troubleshooting
+## 13. Troubleshooting
 
 ### "I can't see any devices after scanning"
 - Confirm the Maker API app is installed and enabled on your hub.

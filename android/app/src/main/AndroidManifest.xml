@@ -53,6 +53,10 @@
             android:exported="false" />
 
         <receiver
+            android:name=".service.LocationBroadcastReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".service.BootReceiver"
             android:exported="true">
             <intent-filter>

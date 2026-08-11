@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# always stop first
+/home/tim/gitrepos/HubitatDashboard/stop
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PID_FILE="$ROOT/.dashboard-pids.json"
 BACKEND_LOG="$ROOT/.dashboard-backend.log"

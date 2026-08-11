@@ -30,7 +30,11 @@ data class TrackerUiState(
     val hasFineLocation: Boolean = false,
     val hasBackgroundLocation: Boolean = false,
     val isTesting: Boolean = false,
-    val minDistanceMiles: Float = 1.0f
+    val minDistanceMiles: Float = 1.0f,
+    val pollingIntervalSeconds: Int = 10,
+    val startHour: Int = 0,
+    val endHour: Int = 23,
+    val mapCsvUrl: String = ""
 )
 
 @HiltViewModel
@@ -101,10 +105,33 @@ class LocationTrackerViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(deviceName = name)
     }
 
+    fun setMapCsvUrl(url: String) {
+        settingsRepository.setGpsMapCsvUrl(url.trim())
+        _uiState.value = _uiState.value.copy(mapCsvUrl = url)
+    }
+
     fun setMinDistanceMiles(miles: Float) {
-        val clamped = miles.coerceAtLeast(0.1f)
+        val clamped = miles.coerceAtLeast(0.0f)
         settingsRepository.setGpsMinDistanceMiles(clamped)
         _uiState.value = _uiState.value.copy(minDistanceMiles = clamped)
+    }
+
+    fun setPollingIntervalSeconds(seconds: Int) {
+        val clamped = seconds.coerceAtLeast(5)
+        settingsRepository.setGpsPollingIntervalSeconds(clamped)
+        _uiState.value = _uiState.value.copy(pollingIntervalSeconds = clamped)
+    }
+
+    fun setStartHour(hour: Int) {
+        val clamped = hour.coerceIn(0, 23)
+        settingsRepository.setGpsStartHour(clamped)
+        _uiState.value = _uiState.value.copy(startHour = clamped)
+    }
+
+    fun setEndHour(hour: Int) {
+        val clamped = hour.coerceIn(0, 23)
+        settingsRepository.setGpsEndHour(clamped)
+        _uiState.value = _uiState.value.copy(endHour = clamped)
     }
 
     fun testNow(context: Context) {
@@ -159,7 +186,11 @@ class LocationTrackerViewModel @Inject constructor(
                     context, Manifest.permission.ACCESS_BACKGROUND_LOCATION
                 ) == PackageManager.PERMISSION_GRANTED
             } else true,
-            minDistanceMiles = settingsRepository.gpsMinDistanceMiles
+            minDistanceMiles = settingsRepository.gpsMinDistanceMiles,
+            pollingIntervalSeconds = settingsRepository.gpsPollingIntervalSeconds,
+            startHour = settingsRepository.gpsStartHour,
+            endHour = settingsRepository.gpsEndHour,
+            mapCsvUrl = settingsRepository.gpsMapCsvUrl
         )
     }
 
@@ -175,4 +206,3 @@ class LocationTrackerViewModel @Inject constructor(
         private const val TAG = "TrackerVM"
     }
 }
-

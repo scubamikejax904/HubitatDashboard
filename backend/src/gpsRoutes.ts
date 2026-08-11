@@ -13,17 +13,30 @@ export async function gpsRoutes(fastify: FastifyInstance): Promise<void> {
       });
     }
 
-    const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
+    const { startDate, endDate, tzOffset } = req.query as {
+      startDate?: string;
+      endDate?: string;
+      tzOffset?: string;
+    };
 
     try {
       let data = await fetchGpsData();
 
       // Server-side date filtering
       if (startDate || endDate) {
-        const start = startDate ? new Date(startDate + 'T00:00:00Z') : new Date(0);
-        const end = endDate ? new Date(endDate + 'T23:59:59.999Z') : new Date(8640000000000000);
+        const offsetMin = tzOffset !== undefined ? parseInt(tzOffset, 10) : 0;
+        const offsetMs = Number.isFinite(offsetMin) ? offsetMin * 60 * 1000 : 0;
 
-        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        // Parse dates as UTC, then shift by client's timezone offset
+        // so the filter window matches the client's local midnight-to-midnight
+        const start = startDate
+          ? new Date(startDate + 'T00:00:00Z').getTime() + offsetMs
+          : 0;
+        const end = endDate
+          ? new Date(endDate + 'T23:59:59.999Z').getTime() + offsetMs
+          : 8640000000000000;
+
+        if ((startDate && isNaN(start)) || (endDate && isNaN(end))) {
           return reply.status(400).send({
             message: 'Invalid date format. Use YYYY-MM-DD.',
           });
@@ -31,7 +44,7 @@ export async function gpsRoutes(fastify: FastifyInstance): Promise<void> {
 
         data = data.filter((item) => {
           const t = new Date(item.timestamp).getTime();
-          return !isNaN(t) && t >= start.getTime() && t <= end.getTime();
+          return !isNaN(t) && t >= start && t <= end;
         });
       }
 

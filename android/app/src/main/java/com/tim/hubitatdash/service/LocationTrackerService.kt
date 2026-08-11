@@ -1,286 +1,251 @@
 package com.tim.hubitatdash.service
 
-import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
-import com.google.android.gms.tasks.CancellationTokenSource
+import androidx.core.app.NotificationCompat
+import com.google.android.gms.location.*
+import com.tim.hubitatdash.data.repository.AllNotificationEvent
+import com.tim.hubitatdash.data.repository.AllNotificationsRepository
 import com.tim.hubitatdash.data.repository.SettingsRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
-import okhttp3.Call
-import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import okhttp3.Response
 import org.json.JSONObject
-import java.io.IOException
 import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
+import java.time.LocalTime
 import javax.inject.Inject
-import kotlin.math.abs
 
-/**
- * Foreground service that obtains a single GPS fix via the Fused Location Provider
- * and POSTs the coordinates as JSON to a Google Apps Script Web App URL.
- *
- * Lifecycle:
- * 1. AlarmReceiver starts this service
- * 2. Service calls startForeground() with a persistent notification
- * 3. Gets a GPS fix (high accuracy → fallback to last known)
- * 4. POSTs { timestamp, latitude, longitude, device } to Apps Script
- * 5. Updates notification with result
- * 6. Re-schedules the next alarm via [AlarmScheduler]
- * 7. stopSelf() after a brief delay
- */
+// New channel ID forces recreation with IMPORTANCE_MIN (existing channels can't be downgraded)
+private const val CHANNEL_ID = "gps_tracker_silent"
+private const val NOTIF_ID = 5001
+
 @AndroidEntryPoint
 class LocationTrackerService : Service() {
 
-    @Inject lateinit var okHttpClient: OkHttpClient
     @Inject lateinit var settingsRepository: SettingsRepository
-
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private lateinit var notificationManager: NotificationManager
-
-    override fun onBind(intent: Intent?): IBinder? = null
+    @Inject lateinit var allNotificationsRepository: AllNotificationsRepository
+    @Inject lateinit var fusedLocationClient: FusedLocationProviderClient
 
     override fun onCreate() {
         super.onCreate()
-        notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        createNotificationChannel()
+        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL_ID, "GPS Tracker", NotificationManager.IMPORTANCE_MIN).apply {
+                setShowBadge(false)
+            }
+        )
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(NOTIFICATION_ID, buildNotification("Getting GPS fix…"))
+        // Must call startForeground() immediately on Android 9+ for location foreground services
+        startForeground(
+            NOTIF_ID,
+            NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle("GPS Tracker")
+                .setContentText("Tracking location in background")
+                .setSmallIcon(android.R.drawable.ic_menu_compass)
+                .setOngoing(true)
+                .setPriority(NotificationCompat.PRIORITY_MIN)
+                .setSilent(true)
+                .build()
+        )
 
-        serviceScope.launch {
-            try {
-                val location = getDeviceLocation()
-                if (location != null) {
-                    val lat = "%.6f".format(location.latitude)
-                    val lng = "%.6f".format(location.longitude)
-                    
-                    // Check if location changed significantly
-                    val (shouldPost, message) = shouldPostLocation(location)
-                    if (shouldPost) {
-                        updateNotification("Sending: $lat, $lng")
-                        postLocation(location.latitude, location.longitude)
-                        updateNotification("✓ Sent at ${formatTime()}")
-                        Log.d(TAG, "Location posted: lat=${location.latitude} lng=${location.longitude}")
-                        saveLastLocation(location.latitude, location.longitude)
-                    } else {
-                        updateNotification(message)
-                        Log.d(TAG, message)
-                    }
-                } else {
-                    updateNotification("✗ No GPS fix available")
-                    Log.w(TAG, "No location available")
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Tracker error: ${e.message}", e)
-                updateNotification("✗ Error: ${e.message?.take(60)}")
-            } finally {
-                // Re-schedule next alarm if tracking is still enabled
-                if (settingsRepository.gpsTrackingEnabled) {
-                    AlarmScheduler(this@LocationTrackerService)
-                        .scheduleNext(settingsRepository.gpsTrackingInterval)
-                    syncBootPrefs()
-                }
-                // Give the notification a moment to show the final state, then stop
-                delay(3000)
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
+        val intervalSeconds = settingsRepository.gpsPollingIntervalSeconds.toLong()
+
+        val locationRequest = LocationRequest.Builder(
+            Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+            intervalSeconds * 1000
+        ).apply {
+            setMinUpdateIntervalMillis(intervalSeconds * 500)
+        }.build()
+
+        // FLAG_UPDATE_CURRENT ensures re-registering replaces the previous registration.
+        // FLAG_MUTABLE is required: FusedLocationProviderClient writes location extras into
+        // the Intent before firing it — an immutable PendingIntent blocks this and fails.
+        val piFlags = PendingIntent.FLAG_UPDATE_CURRENT or
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0
+        val pendingIntent = PendingIntent.getBroadcast(
+            this, 0,
+            Intent(this, LocationBroadcastReceiver::class.java),
+            piFlags
+        )
+
+        Log.d("GPSTracker", "Calling requestLocationUpdates (interval=${intervalSeconds}s)")
+        fusedLocationClient.requestLocationUpdates(locationRequest, pendingIntent)
+            .addOnSuccessListener {
+                Log.d("GPSTracker", "requestLocationUpdates SUCCESS")
+                allNotificationsRepository.addEvent(
+                    AllNotificationEvent(Instant.now(), PKG, "GPS State", "Registered persistent updates (interval ${intervalSeconds}s)")
+                )
             }
-        }
+            .addOnFailureListener { e ->
+                Log.e("GPSTracker", "requestLocationUpdates FAILED: ${e.message}", e)
+                allNotificationsRepository.addEvent(
+                    AllNotificationEvent(Instant.now(), PKG, "GPS Error", "Registration failed: ${e.message}")
+                )
+            }
 
-        return START_NOT_STICKY
+        return START_STICKY
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        serviceScope.cancel()
+        val piFlags = PendingIntent.FLAG_UPDATE_CURRENT or
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0
+        val pendingIntent = PendingIntent.getBroadcast(
+            this, 0,
+            Intent(this, LocationBroadcastReceiver::class.java),
+            piFlags
+        )
+        fusedLocationClient.removeLocationUpdates(pendingIntent)
     }
 
-    // region — Location
+    override fun onBind(intent: Intent?) = null
 
-    private fun shouldPostLocation(newLocation: android.location.Location): Pair<Boolean, String> {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    companion object {
+        private const val PKG = "com.tim.hubitatdash.service.LocationTrackerService"
+    }
+}
+
+@AndroidEntryPoint
+class LocationBroadcastReceiver : BroadcastReceiver() {
+
+    @Inject lateinit var settingsRepository: SettingsRepository
+    @Inject lateinit var allNotificationsRepository: AllNotificationsRepository
+    @Inject lateinit var okHttpClient: OkHttpClient
+
+    override fun onReceive(context: Context, intent: Intent) {
+        val result = LocationResult.extractResult(intent) ?: return
+        val location = result.lastLocation ?: return
+
+        // goAsync() extends the broadcast deadline so we can do I/O off the main thread
+        val pendingResult = goAsync()
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            try {
+                processLocation(context, location)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error processing location", e)
+                log("GPS Error", "Processing failed: ${e.message}")
+            } finally {
+                pendingResult.finish()
+            }
+        }
+    }
+
+    private fun processLocation(context: Context, location: android.location.Location) {
+        // --- Time-of-day gate ---
+        val hour = LocalTime.now().hour
+        val startHour = settingsRepository.gpsStartHour
+        val endHour = settingsRepository.gpsEndHour
+        if (hour < startHour || hour > endHour) {
+            Log.d(TAG, "Outside time window [$startHour–$endHour] (hour=$hour), skipping")
+            return
+        }
+
+        val prefs = context.getSharedPreferences(GPS_PREFS, Context.MODE_PRIVATE)
         val lastLat = prefs.getFloat(KEY_LAST_LAT, Float.NaN)
         val lastLng = prefs.getFloat(KEY_LAST_LNG, Float.NaN)
-        
-        // First time or no saved location
-        if (lastLat.isNaN() || lastLng.isNaN()) {
-            return Pair(true, "First location")
-        }
-        
-        // Calculate distance in miles
-        val lastLocation = android.location.Location("").apply {
-            latitude = lastLat.toDouble()
-            longitude = lastLng.toDouble()
-        }
-        val distanceMeters = newLocation.distanceTo(lastLocation)
-        val distanceMiles = distanceMeters / 1609.34 // 1 mile = 1609.34 meters
-        
-        val minDistance = settingsRepository.gpsMinDistanceMiles
-        val shouldPost = distanceMiles > minDistance
-        
-        val message = if (shouldPost) {
-            "Moving: %.2f mi (threshold: %.1f)".format(distanceMiles, minDistance)
+        val lastUploadMs = prefs.getLong(KEY_LAST_UPLOAD_TIME, 0L)
+
+        // --- Distance from last posted location ---
+        val distanceMiles = if (lastLat.isNaN() || lastLng.isNaN()) {
+            Float.MAX_VALUE // first-ever run — always upload
         } else {
-            "Too close: %.3f mi (threshold: %.1f)".format(distanceMiles, minDistance)
+            val results = FloatArray(1)
+            android.location.Location.distanceBetween(
+                lastLat.toDouble(), lastLng.toDouble(),
+                location.latitude, location.longitude,
+                results
+            )
+            results[0] / METERS_PER_MILE
         }
-        
-        return Pair(shouldPost, message)
-    }
 
-    private fun saveLastLocation(latitude: Double, longitude: Double) {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit()
-            .putFloat(KEY_LAST_LAT, latitude.toFloat())
-            .putFloat(KEY_LAST_LNG, longitude.toFloat())
-            .apply()
-    }
+        // --- Time elapsed since last upload ---
+        val elapsedMin = (System.currentTimeMillis() - lastUploadMs) / 60_000.0
+        val intervalMin = settingsRepository.gpsTrackingInterval.toDouble()
+        val minDist = settingsRepository.gpsMinDistanceMiles
 
-    private suspend fun getDeviceLocation(): android.location.Location? {
-        try {
-            val fusedClient = LocationServices.getFusedLocationProviderClient(this)
+        val movedEnough = distanceMiles >= minDist
+        val intervalDue = elapsedMin >= intervalMin
 
-            // Try current high-accuracy location first
-            val cancellationTokenSource = CancellationTokenSource()
-            return try {
-                fusedClient.getCurrentLocation(
-                    Priority.PRIORITY_HIGH_ACCURACY,
-                    cancellationTokenSource.token
-                ).await()
-            } catch (e: Exception) {
-                Log.w(TAG, "getCurrentLocation failed, trying lastLocation: ${e.message}")
-                fusedClient.lastLocation.await()
-            }
-        } catch (e: SecurityException) {
-            Log.e(TAG, "Location permission denied: ${e.message}")
-            return null
+        Log.d(TAG, "dist=${distanceMiles}mi (min=$minDist), elapsed=${elapsedMin}min (interval=$intervalMin), moved=$movedEnough, due=$intervalDue")
+
+        if (!movedEnough && !intervalDue) {
+            Log.d(TAG, "Thresholds not met — skipping upload")
+            return
         }
-    }
 
-    // endregion
-
-    // region — Network
-
-    private suspend fun postLocation(latitude: Double, longitude: Double) {
+        // --- Upload to Google Sheets via Apps Script ---
         val url = settingsRepository.gpsAppsScriptUrl
-        val device = settingsRepository.gpsDeviceName.ifBlank { Build.MODEL }
-
         if (url.isBlank()) {
-            Log.w(TAG, "Apps Script URL is blank — skipping POST")
+            Log.w(TAG, "Apps Script URL not configured — skipping upload")
             return
         }
 
         val json = JSONObject().apply {
             put("timestamp", Instant.now().toString())
-            put("latitude", latitude)
-            put("longitude", longitude)
-            put("device", device)
+            put("latitude", location.latitude)
+            put("longitude", location.longitude)
+            put("device", settingsRepository.gpsDeviceName)
         }
-        
-        Log.d(TAG, "POSTing to $url with body: $json")
 
         val body = json.toString().toRequestBody("application/json".toMediaType())
-        val request = Request.Builder()
-            .url(url)
-            .post(body)
-            .build()
+        val request = Request.Builder().url(url).post(body).build()
 
         try {
-            val response = okHttpClient.newCall(request).execute()
-            response.use {
-                if (it.isSuccessful) {
-                    Log.d(TAG, "Apps Script returned HTTP ${it.code} - success")
+            okHttpClient.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    prefs.edit()
+                        .putFloat(KEY_LAST_LAT, location.latitude.toFloat())
+                        .putFloat(KEY_LAST_LNG, location.longitude.toFloat())
+                        .putLong(KEY_LAST_UPLOAD_TIME, System.currentTimeMillis())
+                        .apply()
+                    val msg = "Uploaded: ${location.latitude}, ${location.longitude}"
+                    Log.d(TAG, msg)
+                    log("GPS Upload ✓", msg)
                 } else {
-                    Log.w(TAG, "Apps Script returned HTTP ${it.code}: ${it.body?.string()?.take(200)}")
+                    val msg = "HTTP ${response.code}"
+                    Log.w(TAG, "Upload failed: $msg")
+                    log("GPS Upload ✗", msg)
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to POST location: ${e.message}", e)
+            Log.e(TAG, "Upload network error: ${e.message}", e)
+            log("GPS Upload Error", e.message ?: "unknown error")
         }
     }
 
-    // endregion
-
-    // region — Notification
-
-    private fun createNotificationChannel() {
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            "GPS Tracker",
-            NotificationManager.IMPORTANCE_LOW
-        ).apply {
-            description = "Background GPS location tracking"
-            setShowBadge(false)
-        }
-        notificationManager.createNotificationChannel(channel)
+    private fun log(title: String, text: String) {
+        allNotificationsRepository.addEvent(
+            AllNotificationEvent(
+                timestamp = Instant.now(),
+                packageName = "com.tim.hubitatdash.service.LocationBroadcastReceiver",
+                title = title,
+                text = text
+            )
+        )
     }
-
-    private fun buildNotification(text: String): Notification {
-        return Notification.Builder(this, CHANNEL_ID)
-            .setContentTitle("Hubitat GPS Tracker")
-            .setContentText(text)
-            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
-            .setOngoing(true)
-            .build()
-    }
-
-    private fun updateNotification(text: String) {
-        val notification = buildNotification(text)
-        notificationManager.notify(NOTIFICATION_ID, notification)
-    }
-
-    // endregion
-
-    // region — Helpers
-
-    private fun formatTime(): String {
-        return DateTimeFormatter.ofPattern("HH:mm:ss")
-            .withZone(ZoneId.systemDefault())
-            .format(Instant.now())
-    }
-
-    /**
-     * Syncs the tracking enabled/interval flags to a non-encrypted prefs file
-     * so [BootReceiver] can read them without the Android Keystore.
-     */
-    private fun syncBootPrefs() {
-        val bootPrefs = getSharedPreferences(BootReceiver.PREFS_NAME, Context.MODE_PRIVATE)
-        bootPrefs.edit()
-            .putBoolean(BootReceiver.KEY_ENABLED, settingsRepository.gpsTrackingEnabled)
-            .putInt(BootReceiver.KEY_INTERVAL, settingsRepository.gpsTrackingInterval)
-            .apply()
-    }
-
-    // endregion
 
     companion object {
         private const val TAG = "GPSTracker"
-        private const val CHANNEL_ID = "gps_tracker"
-        private const val NOTIFICATION_ID = 9002
-        private const val PREFS_NAME = "gps_tracker_prefs"
+        private const val GPS_PREFS = "gps_tracker_prefs"
         private const val KEY_LAST_LAT = "last_latitude"
         private const val KEY_LAST_LNG = "last_longitude"
+        private const val KEY_LAST_UPLOAD_TIME = "last_upload_time"
+        private const val METERS_PER_MILE = 1609.344f
     }
 }
-

@@ -44,6 +44,9 @@ function parseCsv(csv: string): GpsDataPoint[] {
   const lngIdx = headers.findIndex((h) =>
     h === 'long' || h === 'lng' || h === 'longitude' || h === 'lon',
   );
+  const devIdx = headers.findIndex(
+    (h) => h === 'device' || h === 'phone' || h === 'name',
+  );
 
   if (tsIdx === -1 || latIdx === -1 || lngIdx === -1) {
     throw new Error(
@@ -74,7 +77,12 @@ function parseCsv(csv: string): GpsDataPoint[] {
       timestamp = isNaN(d.getTime()) ? rawTs : d.toISOString();
     }
 
-    points.push({ timestamp, lat: rawLat, long: rawLng });
+    points.push({
+      timestamp,
+      lat: rawLat,
+      long: rawLng,
+      device: devIdx >= 0 && cells[devIdx] ? cells[devIdx].trim() : undefined,
+    });
   }
 
   return points;

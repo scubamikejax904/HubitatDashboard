@@ -26,6 +26,7 @@ import com.tim.hubitatdash.viewmodel.SettingsViewModel
 fun SettingsScreen(
     onSaveSuccess: () -> Unit,
     onRingListenerClick: () -> Unit = {},
+    onGpsMapClick: () -> Unit = {},
     onGpsTrackerClick: () -> Unit = { /* GPS Tracker screen not available */ },
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
@@ -251,6 +252,13 @@ fun SettingsScreen(
             }
 
             OutlinedButton(
+                onClick = onGpsMapClick,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("GPS Map Viewer →")
+            }
+
+            OutlinedButton(
                 onClick = onRingListenerClick,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Ring Listener →") }
@@ -292,4 +300,3 @@ fun SettingsScreen(
         )
     }
 }
-

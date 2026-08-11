@@ -7,6 +7,7 @@ import { webhookRoutes } from './webhook.js';
 import { gpsRoutes } from './gpsRoutes.js';
 import { clientCount } from './sse.js';
 import { getAllDevices, setAllDevices } from './cache.js';
+import { prisma } from './db.js';
 
 const fastify = Fastify({ logger: true });
 
@@ -23,6 +24,24 @@ fastify.get('/api/health', async () => ({
   devices: getAllDevices().length,
   timestamp: Date.now(),
 }));
+
+// Setup status — first-run detection for frontend and Android apps
+fastify.get('/api/setup/status', async (_req, reply) => {
+  if (!config.databaseUrl) {
+    return reply.send({ hasGroups: false, hubConnected: false });
+  }
+  try {
+    const row = await prisma.dashboardConfig.findUnique({ where: { id: 1 } });
+    const cfg = (row?.config ?? {}) as Record<string, unknown>;
+    const customGroups = Array.isArray(cfg.customGroups) ? cfg.customGroups : [];
+    const hasGroups = customGroups.length > 0;
+    const hubConnected = Boolean(config.hubIP && config.accessToken);
+    return reply.send({ hasGroups, hubConnected });
+  } catch (e) {
+    fastify.log.error(e, '[setup] GET /api/setup/status failed');
+    return reply.send({ hasGroups: false, hubConnected: false });
+  }
+});
 
 // Hydrate device cache on startup
 async function hydrateCache(): Promise<void> {

@@ -1,14 +1,38 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
-import { MapContainer, TileLayer, Polyline, CircleMarker, Popup, useMap } from 'react-leaflet'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet'
 import * as L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Filter, Loader2 } from 'lucide-react'
+import { ArrowLeft, Filter, Loader2, RotateCw } from 'lucide-react'
+
+const LAYER_OPTIONS = {
+  satellite: {
+    label: 'Satellite',
+    url: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+    attribution: '&copy; Google',
+    maxZoom: 20,
+  },
+  street: {
+    label: 'Street',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19,
+  },
+  hybrid: {
+    label: 'Hybrid',
+    url: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+    attribution: '&copy; Google',
+    maxZoom: 20,
+  },
+} as const
+
+type LayerKey = keyof typeof LAYER_OPTIONS
 
 interface GpsDataPoint {
   timestamp: string
   lat: number
   long: number
+  device?: string
 }
 
 const mapStyle = {
@@ -17,16 +41,19 @@ const mapStyle = {
   minHeight: '400px',
 }
 
-/** Fit map bounds to the data points */
+/** Fit map bounds to the data points on initial load only */
 function FitBounds({ points }: { points: { lat: number; lng: number }[] }) {
   const map = useMap()
+  const hasFit = useRef(false)
   useEffect(() => {
+    if (hasFit.current || points.length === 0) return
     if (points.length > 1) {
       const bounds = L.latLngBounds(points.map((p) => [p.lat, p.lng] as [number, number]))
       map.fitBounds(bounds, { padding: [40, 40] })
     } else if (points.length === 1) {
       map.setView([points[0].lat, points[0].lng], 14)
     }
+    hasFit.current = true
   }, [points, map])
   return null
 }
@@ -37,8 +64,16 @@ export function GpsMapPage() {
   const [data, setData] = useState<GpsDataPoint[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  })
+  const [endDate, setEndDate] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  })
+  const [mapLayer, setMapLayer] = useState<LayerKey>('hybrid')
+  const [refreshInterval, setRefreshInterval] = useState(0) // 0 = off, else seconds
 
   // Check if the backend has the GPS feature configured
   useEffect(() => {
@@ -55,6 +90,7 @@ export function GpsMapPage() {
       const params = new URLSearchParams()
       if (startDate) params.set('startDate', startDate)
       if (endDate) params.set('endDate', endDate)
+      params.set('tzOffset', String(new Date().getTimezoneOffset()))
       const url = `/api/gps-track?${params.toString()}`
       const res = await fetch(url)
       if (!res.ok) {
@@ -72,7 +108,14 @@ export function GpsMapPage() {
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-refresh on interval
+  useEffect(() => {
+    if (refreshInterval <= 0) return
+    const id = setInterval(fetchData, refreshInterval * 1000)
+    return () => clearInterval(id)
+  }, [refreshInterval, fetchData])
 
   // Sort chronologically
   const sortedPoints = useMemo(
@@ -84,7 +127,38 @@ export function GpsMapPage() {
   const path = useMemo(
     () => sortedPoints.map((p) => ({ lat: p.lat, lng: p.long })) as { lat: number; lng: number }[],
     [sortedPoints],
-  )
+  );
+
+  // Latest timestamp per device (the "current" position for each phone)
+  const latestPerDevice = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of sortedPoints) {
+      const d = p.device ?? '';
+      const existing = map.get(d);
+      if (!existing || p.timestamp > existing) {
+        map.set(d, p.timestamp);
+      }
+    }
+    return map;
+  }, [sortedPoints]);
+
+  // Fixed colour pairs per device (alphabetical order → stable assignment)
+  const deviceColorMap = useMemo(() => {
+    const devices = [
+      ...new Set(sortedPoints.map((p) => p.device ?? '')),
+    ].sort();
+
+    const colorPairs: Array<{ trail: string; current: string }> = [
+      { trail: '#3B82F6', current: '#EF4444' }, // blue trail, red current
+      { trail: '#22C55E', current: '#FACC15' }, // green trail, yellow current
+    ];
+
+    const map = new Map<string, { trail: string; current: string }>();
+    for (let i = 0; i < devices.length; i++) {
+      map.set(devices[i], colorPairs[i % colorPairs.length]);
+    }
+    return map;
+  }, [sortedPoints]);
 
   // Center map
   const center = useMemo((): [number, number] => {
@@ -123,6 +197,25 @@ export function GpsMapPage() {
         <span className="text-sm font-medium text-gray-700 dark:text-gray-200">GPS Track</span>
 
         <div className="flex items-center gap-2 ml-auto flex-wrap">
+          <select
+            value={mapLayer}
+            onChange={(e) => setMapLayer(e.target.value as LayerKey)}
+            className="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+          >
+            {(Object.keys(LAYER_OPTIONS) as LayerKey[]).map((key) => (
+              <option key={key} value={key}>{LAYER_OPTIONS[key].label}</option>
+            ))}
+          </select>
+          <select
+            value={refreshInterval}
+            onChange={(e) => setRefreshInterval(Number(e.target.value))}
+            className="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+          >
+            <option value={0}>Auto: Off</option>
+            {[1,2,3,4,5,6,7,8,9,10].map((n) => (
+              <option key={n} value={n}>{n}s</option>
+            ))}
+          </select>
           <input
             type="date"
             value={startDate}
@@ -143,6 +236,14 @@ export function GpsMapPage() {
           >
             {loading ? <Loader2 size={14} className="animate-spin" /> : <Filter size={14} />}
             <span>Filter</span>
+          </button>
+          <button
+            onClick={fetchData}
+            disabled={loading}
+            className="flex items-center gap-1 px-3 py-1 text-sm text-gray-700 dark:text-gray-200 border border-gray-400 dark:border-gray-500 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+          >
+            {loading ? <Loader2 size={14} className="animate-spin" /> : <RotateCw size={14} />}
+            <span>Refresh</span>
           </button>
           <button
             onClick={() => {
@@ -178,54 +279,52 @@ export function GpsMapPage() {
       )}
 
       {/* Map */}
-      <div className="flex-1 p-4">
-        {loading ? (
-          <div className="flex items-center justify-center h-full">
+      <div className="flex-1 p-4 relative">
+        <MapContainer
+          center={center}
+          zoom={sortedPoints.length > 0 ? 14 : 4}
+          maxZoom={20}
+          style={mapStyle}
+          scrollWheelZoom
+        >
+          <TileLayer
+            key={mapLayer}
+            attribution={LAYER_OPTIONS[mapLayer].attribution}
+            url={LAYER_OPTIONS[mapLayer].url}
+            maxZoom={LAYER_OPTIONS[mapLayer].maxZoom}
+          />
+          <FitBounds points={path} />
+          {sortedPoints.map((point, idx) => {
+            const dev = point.device ?? ''
+            const colors = deviceColorMap.get(dev) ?? { trail: '#3B82F6', current: '#EF4444' }
+            const isLatest = latestPerDevice.get(dev) === point.timestamp
+            const color = isLatest ? colors.current : colors.trail
+            return (
+              <CircleMarker
+                key={idx}
+                center={[point.lat, point.long]}
+                radius={isLatest ? 7 : 4}
+                pathOptions={{ color: '#fff', weight: 1.5, fillColor: color, fillOpacity: 0.9 }}
+              >
+                <Popup>
+                  <div className="text-xs">
+                    <div className="font-medium">{new Date(point.timestamp).toLocaleString()}</div>
+                    <div className="text-gray-500 mt-0.5">
+                      {point.lat.toFixed(6)}, {point.long.toFixed(6)}
+                    </div>
+                    <div className="mt-0.5 font-semibold text-gray-700">
+                      {dev || 'Unknown'} {isLatest && '(current)'}
+                    </div>
+                  </div>
+                </Popup>
+              </CircleMarker>
+            )
+          })}
+        </MapContainer>
+        {loading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/10 pointer-events-none">
             <Loader2 size={32} className="animate-spin text-blue-500" />
           </div>
-        ) : (
-          <MapContainer
-            center={center}
-            zoom={sortedPoints.length > 0 ? 14 : 4}
-            maxZoom={20}
-            style={mapStyle}
-            scrollWheelZoom
-          >
-            <TileLayer
-              attribution='&copy; Google'
-              url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}"
-              maxZoom={20}
-            />
-            <FitBounds points={path} />
-            {path.length > 1 && <Polyline positions={path} pathOptions={{ color: '#3B82F6', weight: 3 }} />}
-            {sortedPoints.map((point, idx) => {
-              const isStart = idx === 0
-              const isEnd = idx === sortedPoints.length - 1
-              const color = isStart ? '#22C55E' : isEnd ? '#EF4444' : '#3B82F6'
-              return (
-                <CircleMarker
-                  key={idx}
-                  center={[point.lat, point.long]}
-                  radius={isStart || isEnd ? 7 : 4}
-                  pathOptions={{ color: '#fff', weight: 1.5, fillColor: color, fillOpacity: 0.9 }}
-                >
-                  <Popup>
-                    <div className="text-xs">
-                      <div className="font-medium">{new Date(point.timestamp).toLocaleString()}</div>
-                      <div className="text-gray-500 mt-0.5">
-                        {point.lat.toFixed(6)}, {point.long.toFixed(6)}
-                      </div>
-                      {(isStart || isEnd) && (
-                        <div className="mt-0.5 font-semibold text-gray-700">
-                          {isStart ? '🟢 Start' : '🔴 End'}
-                        </div>
-                      )}
-                    </div>
-                  </Popup>
-                </CircleMarker>
-              )
-            })}
-          </MapContainer>
         )}
       </div>
     </div>

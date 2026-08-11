@@ -25,6 +25,12 @@ class SettingsRepository @Inject constructor(
         const val KEY_GPS_APPS_SCRIPT_URL = "gps_apps_script_url"
         const val KEY_GPS_DEVICE_NAME = "gps_device_name"
         const val KEY_GPS_MIN_DISTANCE = "gps_min_distance_miles"
+        const val KEY_GPS_START_HOUR = "gps_start_hour"
+        const val KEY_GPS_END_HOUR = "gps_end_hour"
+        const val KEY_GPS_POLLING_INTERVAL = "gps_polling_interval_seconds"
+        const val KEY_GPS_MAP_CSV_URL = "gps_map_csv_url"
+        private const val DEFAULT_GPS_MAP_CSV_URL =
+            "https://docs.google.com/spreadsheets/d/1EGNmf9XvinmTE5EGZUOBjaoeU1HIvBLHlz33TN0KfcU/export?format=csv&gid=0"
     }
 
     val localHubIp: String get() = prefs.getString(KEY_LOCAL_HUB_IP, "") ?: ""
@@ -35,14 +41,18 @@ class SettingsRepository @Inject constructor(
     val pinHash: String get() = prefs.getString(KEY_PIN_HASH, "") ?: ""
     val groupOrder: String get() = prefs.getString(KEY_GROUP_ORDER, "") ?: ""
     val themeOverride: String get() = prefs.getString(KEY_THEME_OVERRIDE, "system") ?: "system"
-    val defaultGroupId: String get() = prefs.getString(KEY_DEFAULT_GROUP_ID, "environment") ?: "environment"
+    val defaultGroupId: String get() = prefs.getString(KEY_DEFAULT_GROUP_ID, "") ?: ""
     val hubUsername: String get() = prefs.getString(KEY_HUB_USERNAME, "") ?: ""
     val hubPassword: String get() = prefs.getString(KEY_HUB_PASSWORD, "") ?: ""
     val gpsTrackingEnabled: Boolean get() = prefs.getBoolean(KEY_GPS_TRACKING_ENABLED, false)
     val gpsTrackingInterval: Int get() = prefs.getInt(KEY_GPS_TRACKING_INTERVAL, 15)
     val gpsAppsScriptUrl: String get() = prefs.getString(KEY_GPS_APPS_SCRIPT_URL, "") ?: ""
     val gpsDeviceName: String get() = prefs.getString(KEY_GPS_DEVICE_NAME, "") ?: ""
-    val gpsMinDistanceMiles: Float get() = prefs.getFloat(KEY_GPS_MIN_DISTANCE, 1.0f)
+    val gpsMinDistanceMiles: Float get() = prefs.getFloat(KEY_GPS_MIN_DISTANCE, 0.019f)
+    val gpsStartHour: Int get() = prefs.getInt(KEY_GPS_START_HOUR, 0)
+    val gpsEndHour: Int get() = prefs.getInt(KEY_GPS_END_HOUR, 23)
+    val gpsPollingIntervalSeconds: Int get() = prefs.getInt(KEY_GPS_POLLING_INTERVAL, 10)
+    val gpsMapCsvUrl: String get() = prefs.getString(KEY_GPS_MAP_CSV_URL, DEFAULT_GPS_MAP_CSV_URL) ?: DEFAULT_GPS_MAP_CSV_URL
 
     fun setLocalHubIp(value: String) = prefs.edit().putString(KEY_LOCAL_HUB_IP, value).apply()
     fun setMakerAppId(value: String) = prefs.edit().putString(KEY_MAKER_APP_ID, value).apply()
@@ -60,6 +70,10 @@ class SettingsRepository @Inject constructor(
     fun setGpsAppsScriptUrl(url: String) = prefs.edit().putString(KEY_GPS_APPS_SCRIPT_URL, url).apply()
     fun setGpsDeviceName(name: String) = prefs.edit().putString(KEY_GPS_DEVICE_NAME, name).apply()
     fun setGpsMinDistanceMiles(miles: Float) = prefs.edit().putFloat(KEY_GPS_MIN_DISTANCE, miles).apply()
+    fun setGpsStartHour(hour: Int) = prefs.edit().putInt(KEY_GPS_START_HOUR, hour).apply()
+    fun setGpsEndHour(hour: Int) = prefs.edit().putInt(KEY_GPS_END_HOUR, hour).apply()
+    fun setGpsPollingIntervalSeconds(seconds: Int) = prefs.edit().putInt(KEY_GPS_POLLING_INTERVAL, seconds).apply()
+    fun setGpsMapCsvUrl(url: String) = prefs.edit().putString(KEY_GPS_MAP_CSV_URL, url).apply()
 
     fun isGpsTrackerConfigured(): Boolean = gpsAppsScriptUrl.isNotBlank() && gpsDeviceName.isNotBlank()
 
@@ -88,4 +102,3 @@ class SettingsRepository @Inject constructor(
             .apply()
     }
 }
-

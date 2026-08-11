@@ -34,7 +34,7 @@ export function Sidebar() {
   const [hubSyncing, setHubSyncing] = useState<'push' | 'pull' | null>(null)
   const importInputRef = useRef<HTMLInputElement>(null)
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(getSyncStatus)
-  useEffect(() => subscribeSyncStatus(setSyncStatus), [])
+  useEffect(() => { subscribeSyncStatus(setSyncStatus) }, [])
 
   const groupOrder     = useGroupStore((s) => s.groupOrder)
   const customGroups   = useGroupStore((s) => s.customGroups)
@@ -211,49 +211,75 @@ export function Sidebar() {
         </div>
 
         <nav className="flex-1 overflow-y-auto py-2">
-          {navItems.map(({ id, name, Icon }, idx) => (
-            <div key={id} className="group/nav-row flex items-stretch">
-              <NavLink
-                to={`/group/${id}`}
-                onClick={() => setSidebarOpen(false)}
-                title={sidebarCollapsed ? name : undefined}
-                className={({ isActive }) =>
-                  `flex flex-1 items-center gap-3 py-2.5 text-sm transition-colors min-w-0 ${
-                    sidebarCollapsed ? 'justify-center px-0' : 'pl-4 pr-2'
-                  } ${
-                    isActive
-                      ? 'bg-gray-700 text-white'
-                      : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-                  }`
-                }
-              >
-                <Icon size={16} className="flex-shrink-0" />
-                {!sidebarCollapsed && <span className="truncate">{name}</span>}
-              </NavLink>
-
-              {/* Reorder buttons — always visible on mobile, hover-only on desktop */}
+          {navItems.length === 0 ? (
+            <div className={`flex flex-col items-center justify-center py-8 px-4 text-center ${sidebarCollapsed ? '' : 'px-4'}`}>
               {!sidebarCollapsed && (
-                <div className="flex flex-col justify-center px-0.5 flex sm:hidden sm:group-hover/nav-row:flex">
+                <>
+                  <p className="text-xs text-gray-500 mb-3">No groups yet</p>
                   <button
-                    onClick={() => moveGroupUp(id)}
-                    disabled={idx === 0}
-                    className="p-0.5 text-gray-600 hover:text-gray-200 disabled:opacity-20 transition-colors"
-                    aria-label={`Move ${name} up`}
+                    onClick={() => setShowModal(true)}
+                    className="flex items-center gap-2 px-3 py-2 text-xs text-blue-400 hover:text-blue-300 hover:bg-gray-800 rounded-lg transition-colors"
                   >
-                    <ChevronUp size={11} />
+                    <Plus size={14} />
+                    Create Group
                   </button>
-                  <button
-                    onClick={() => moveGroupDown(id)}
-                    disabled={idx === navItems.length - 1}
-                    className="p-0.5 text-gray-600 hover:text-gray-200 disabled:opacity-20 transition-colors"
-                    aria-label={`Move ${name} down`}
-                  >
-                    <ChevronDown size={11} />
-                  </button>
-                </div>
+                </>
+              )}
+              {sidebarCollapsed && (
+                <button
+                  onClick={() => setShowModal(true)}
+                  className="p-2 text-blue-400 hover:text-blue-300 hover:bg-gray-800 rounded-lg transition-colors"
+                  title="Create Group"
+                >
+                  <Plus size={16} />
+                </button>
               )}
             </div>
-          ))}
+          ) : (
+            navItems.map(({ id, name, Icon }, idx) => (
+              <div key={id} className="group/nav-row flex items-stretch">
+                <NavLink
+                  to={`/group/${id}`}
+                  onClick={() => setSidebarOpen(false)}
+                  title={sidebarCollapsed ? name : undefined}
+                  className={({ isActive }) =>
+                    `flex flex-1 items-center gap-3 py-2.5 text-sm transition-colors min-w-0 ${
+                      sidebarCollapsed ? 'justify-center px-0' : 'pl-4 pr-2'
+                    } ${
+                      isActive
+                        ? 'bg-gray-700 text-white'
+                        : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                    }`
+                  }
+                >
+                  <Icon size={16} className="flex-shrink-0" />
+                  {!sidebarCollapsed && <span className="truncate">{name}</span>}
+                </NavLink>
+
+                {/* Reorder buttons — always visible on mobile, hover-only on desktop */}
+                {!sidebarCollapsed && (
+                  <div className="flex flex-col justify-center px-0.5 flex sm:hidden sm:group-hover/nav-row:flex">
+                    <button
+                      onClick={() => moveGroupUp(id)}
+                      disabled={idx === 0}
+                      className="p-0.5 text-gray-600 hover:text-gray-200 disabled:opacity-20 transition-colors"
+                      aria-label={`Move ${name} up`}
+                    >
+                      <ChevronUp size={11} />
+                    </button>
+                    <button
+                      onClick={() => moveGroupDown(id)}
+                      disabled={idx === navItems.length - 1}
+                      className="p-0.5 text-gray-600 hover:text-gray-200 disabled:opacity-20 transition-colors"
+                      aria-label={`Move ${name} down`}
+                    >
+                      <ChevronDown size={11} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
 
           {/* New Group button */}
           <button

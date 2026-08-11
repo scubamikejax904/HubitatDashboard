@@ -8,6 +8,9 @@ package com.tim.hubitatdash.di
 //   val dynamicService = dynamicRetrofit.create(HubitatApiService::class.java)
 //   val devices = dynamicService.getAllDevices(settingsRepository.makerToken)
 
+import android.content.Context
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.tim.hubitatdash.data.api.HubitatApiService
@@ -16,6 +19,7 @@ import com.tim.hubitatdash.data.model.DeviceStateDeserializer
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
@@ -25,6 +29,12 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object ApiModule {
+
+    @Provides
+    @Singleton
+    fun provideFusedLocationProviderClient(@ApplicationContext context: Context): FusedLocationProviderClient {
+        return LocationServices.getFusedLocationProviderClient(context)
+    }
 
     @Provides
     @Singleton

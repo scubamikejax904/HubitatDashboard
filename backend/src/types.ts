@@ -22,6 +22,7 @@ export interface GpsDataPoint {
   timestamp: string;
   lat: number;
   long: number;
+  device?: string;
 }
 
 export interface Config {

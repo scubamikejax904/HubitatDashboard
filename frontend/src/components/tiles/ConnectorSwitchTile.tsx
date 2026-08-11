@@ -22,6 +22,10 @@ function formatCountdown(seconds: number): string {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
+/** Global map of timer start times keyed by hubVarName. Persists across component unmounts
+ *  so the countdown doesn't restart when navigating away from and back to a group page. */
+const timerStartTimes = new Map<string, number>()
+
 export function ConnectorSwitchTile({ deviceId: propDeviceId, label, hubVarName }: Props) {
   const resolvedByLabel = useDeviceIdByLabel(label)
   const deviceId = propDeviceId || resolvedByLabel
@@ -39,12 +43,20 @@ export function ConnectorSwitchTile({ deviceId: propDeviceId, label, hubVarName 
 
   useEffect(() => {
     if (!isOn || !hubVarName || hubVarValue === undefined) {
+      // Switch turned off — clean up any stored start time for this timer
+      timerStartTimes.delete(hubVarName ?? '')
       setSecondsLeft(null)
       return
     }
 
     const totalSeconds = Number(hubVarValue) * 60
-    const startTime = Date.now()
+
+    // Only set a new startTime if this is a fresh "on" transition or we don't have one yet.
+    // This prevents restarting the timer when navigating back to the group.
+    if (!timerStartTimes.has(hubVarName)) {
+      timerStartTimes.set(hubVarName, Date.now())
+    }
+    const startTime = timerStartTimes.get(hubVarName)!
 
     const update = () => {
       const elapsed = Math.floor((Date.now() - startTime) / 1000)
@@ -54,7 +66,7 @@ export function ConnectorSwitchTile({ deviceId: propDeviceId, label, hubVarName 
     update()
     const interval = setInterval(update, 1000)
     return () => clearInterval(interval)
-  }, [isOn, hubVarName, hubVarValue, deviceId])
+  }, [isOn, hubVarName, hubVarValue])
 
   const showAutoOff = isOn && hubVarName && secondsLeft !== null
   const badgeClass = getBadgeColors(label, isOn)

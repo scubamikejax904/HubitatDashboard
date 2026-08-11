@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -30,6 +31,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.WbIncandescent
 import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material3.Button
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -86,6 +88,7 @@ fun GroupDrawer(
     val customGroups by groupEditViewModel.customGroups.collectAsState()
     val defaultGroupId by groupEditViewModel.defaultGroupId.collectAsState()
     var showCreateSheet by remember { mutableStateOf(false) }
+    val hasCustomGroups = customGroups.isNotEmpty()
 
     val customGroupIds = customGroups.map { it.id }.toSet()
     val topLevelGroupIds = resolvedGroups
@@ -131,6 +134,41 @@ fun GroupDrawer(
         }
         HorizontalDivider()
         Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+            if (!hasCustomGroups && resolvedGroups.none { it.id != "system" }) {
+                // Empty state — no custom groups exist yet
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        Icons.Default.Air,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        text = "No groups yet",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Create your first group to organize your devices.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Button(onClick = { showCreateSheet = true }) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Create Group")
+                    }
+                }
+                return@ModalDrawerSheet
+            }
             resolvedGroups.forEach { group ->
                 val isCustom = group.id in customGroupIds
                 val isChild = customGroups.find { it.id == group.id }?.parentId != null
@@ -250,4 +288,3 @@ fun GroupDrawer(
         }
     }
 }
-
