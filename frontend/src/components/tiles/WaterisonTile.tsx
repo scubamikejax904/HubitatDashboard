@@ -22,7 +22,7 @@ function formatCountdown(seconds: number): string {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
-export function ConnectorSwitchTile({ deviceId: propDeviceId, label, hubVarName }: Props) {
+export function WaterisonTile({ deviceId: propDeviceId, label, hubVarName }: Props) {
   const resolvedByLabel = useDeviceIdByLabel(label)
   const deviceId = propDeviceId || resolvedByLabel
   const switchState = useDeviceAttribute(deviceId, 'switch')

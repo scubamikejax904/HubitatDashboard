@@ -16,9 +16,11 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlinx.coroutines.flow.MutableStateFlow
 
 @HiltViewModel
 class DeviceViewModel @Inject constructor(
@@ -41,6 +43,8 @@ class DeviceViewModel @Inject constructor(
     val connectionStatus: StateFlow<ConnectionStatus> = deviceRepository.connectionStatus
         .stateIn(viewModelScope, SharingStarted.Eagerly, ConnectionStatus.RECONNECTING)
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
     val connectionError: StateFlow<String?> = deviceRepository.lastError
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
@@ -84,7 +88,13 @@ class DeviceViewModel @Inject constructor(
 
     fun refresh() {
         viewModelScope.launch {
-            deviceRepository.refresh()
+            if (_isRefreshing.value) return@launch
+            _isRefreshing.value = true
+            try {
+                deviceRepository.refresh()
+            } finally {
+                _isRefreshing.value = false
+            }
         }
     }
 }

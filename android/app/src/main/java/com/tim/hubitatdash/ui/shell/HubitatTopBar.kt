@@ -3,16 +3,20 @@ package com.tim.hubitatdash.ui.shell
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -31,6 +35,9 @@ fun HubitatTopBar(
     isEditMode: Boolean = false,
     showEditToggle: Boolean = false,
     onToggleEditMode: () -> Unit = {},
+    // Manual refresh support
+    onRefresh: () -> Unit = {},
+    isRefreshing: Boolean = false,
     parentGroupLabel: String? = null,
     onParentClick: (() -> Unit)? = null
 ) {
@@ -68,6 +75,17 @@ fun HubitatTopBar(
                     Icon(
                         imageVector = if (isEditMode) Icons.Default.Check else Icons.Default.Edit,
                         contentDescription = if (isEditMode) "Done editing" else "Edit"
+                    )
+                }
+            }
+            // Manual refresh button
+            IconButton(onClick = onRefresh, enabled = !isRefreshing) {
+                if (isRefreshing) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Refresh"
                     )
                 }
             }

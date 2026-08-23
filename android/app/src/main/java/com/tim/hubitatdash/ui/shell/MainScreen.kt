@@ -55,6 +55,7 @@ fun MainScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val viewModel: DeviceViewModel = hiltViewModel()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
     val groupEditViewModel: GroupEditViewModel = hiltViewModel()
     val ringListenerViewModel: RingListenerViewModel = hiltViewModel()
     val hubitatNotificationViewModel: HubitatNotificationViewModel = hiltViewModel()
@@ -168,7 +169,10 @@ fun MainScreen(
                     parentGroupLabel = parentGroupLabel,
                     onParentClick = parentGroupId?.let { pid ->
                         { navController.navigate(NavRoutes.group(pid)) }
-                    }
+                    },
+                    // Manual refresh
+                    onRefresh = { viewModel.refresh() },
+                    isRefreshing = isRefreshing
                 )
             },
             bottomBar = {

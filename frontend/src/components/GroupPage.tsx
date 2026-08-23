@@ -21,6 +21,7 @@ import { PowerMeterTile } from './tiles/PowerMeterTile'
 import { ButtonTile } from './tiles/ButtonTile'
 import { LockTile } from './tiles/LockTile'
 import { ConnectorSwitchTile } from './tiles/ConnectorSwitchTile'
+import { WaterisonTile } from './tiles/WaterisonTile'
 import { HubVariableTile } from './tiles/HubVariableTile'
 import { HSMTile } from './tiles/HSMTile'
 import { ModeTile } from './tiles/ModeTile'
@@ -170,6 +171,7 @@ function renderTile(tile: TileConfig, groupId?: string) {
     case 'button':         return <ButtonTile key={id} {...base} />
     case 'lock':           return <LockTile key={id} {...base} />
     case 'connector':      return <ConnectorSwitchTile key={id} {...base} />
+    case 'waterison':      return <WaterisonTile key={id} {...base} />
     case 'hub-variable':   return <HubVariableTile key={id} hubVarName={tile.hubVarName ?? ''} label={tile.label} />
     case 'hsm':            return <HSMTile key="hsm" />
     case 'mode':           return <ModeTile key="mode" />

@@ -16,7 +16,7 @@ export interface SSEEvent {
 export type TileType =
   | 'switch' | 'dimmer' | 'rgbw' | 'contact' | 'motion'
   | 'temperature' | 'power-meter' | 'button' | 'lock'
-  | 'connector' | 'hub-variable' | 'hsm' | 'mode'
+  | 'connector' | 'waterison' | 'hub-variable' | 'hsm' | 'mode'
   | 'ring-detection' | 'presence' | 'battery' | 'sun-times' | 'multi-device';
 
 export interface TileConfig {
