@@ -87,9 +87,9 @@ class DeviceViewModel @Inject constructor(
     }
 
     fun refresh() {
+        if (_isRefreshing.value) return
+        _isRefreshing.value = true
         viewModelScope.launch {
-            if (_isRefreshing.value) return@launch
-            _isRefreshing.value = true
             try {
                 deviceRepository.refresh()
             } finally {
