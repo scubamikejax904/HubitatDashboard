@@ -4,17 +4,9 @@ import { useCommand } from '../../hooks/useCommand'
 
 interface Props { deviceId: string; label: string; hubVarName?: string }
 
-function getBadgeColors(label: string, isOn: boolean): string {
-  if (!isOn) return 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-  const l = label.toLowerCase()
-  if (l.includes('alarm') || l.includes('alert') || l.includes('panic') || l.includes('trigger')) {
-    return 'bg-red-500 text-white'
-  }
-  if (l.includes('silent') || l.includes('pause')) return 'bg-orange-400 text-white'
-  if (l.includes('travel') || l.includes('away') || l.includes('pto')) return 'bg-blue-500 text-white'
-  if (l.includes('holiday') || l.includes('christmas')) return 'bg-purple-500 text-white'
-  return 'bg-green-500 text-white'
-}
+/** Global map of timer start times keyed by hubVarName. Persists across component unmounts
+ *  so the countdown doesn't restart from full when navigating away from and back to a group page. */
+const timerStartTimes = new Map<string, number>()
 
 function formatCountdown(seconds: number): string {
   const m = Math.floor(seconds / 60)
@@ -22,6 +14,9 @@ function formatCountdown(seconds: number): string {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
+/** Special water-status tile: a switch with an ALWAYS-VISIBLE countdown.
+ *  Unlike ConnectorSwitchTile, the remaining auto-off time is shown prominently
+ *  (large, centered) rather than as a small sub-label. */
 export function WaterisonTile({ deviceId: propDeviceId, label, hubVarName }: Props) {
   const resolvedByLabel = useDeviceIdByLabel(label)
   const deviceId = propDeviceId || resolvedByLabel
@@ -29,56 +24,48 @@ export function WaterisonTile({ deviceId: propDeviceId, label, hubVarName }: Pro
   const hubVarValue = useHubVariable(hubVarName ?? '')
   const [execute] = useCommand()
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null)
-  const [startTime, setStartTime] = useState<number | null>(null)
 
   const toggle = () => {
     const next = switchState === 'on' ? 'off' : 'on'
     execute({ deviceId, command: next, optimisticAttribute: 'switch', optimisticValue: next })
-    
-    // When turning off the switch, reset the timer state
     if (next === 'off') {
       setSecondsLeft(null)
-      setStartTime(null)
+      timerStartTimes.delete(hubVarName ?? '')
     }
   }
 
   const isOn = switchState === 'on'
 
   useEffect(() => {
-    // Only start timer when switch is on and we have a valid hubVarValue
-    if (!isOn || !hubVarName) {
-      setSecondsLeft(null)
-      setStartTime(null)
-      return
-    }
-
-    // If we don't yet have a valid hub variable value, wait for it
-    if (hubVarValue === undefined || hubVarValue === null) {
+    if (!isOn || !hubVarName || hubVarValue === undefined || hubVarValue === null) {
+      if (!isOn) timerStartTimes.delete(hubVarName ?? '')
       setSecondsLeft(null)
       return
     }
 
     const totalSeconds = Number(hubVarValue) * 60
 
-    // Set the start time for this specific tile instance when we have the first valid value
-    if (startTime === null) {
-      setStartTime(Date.now())
+    if (!timerStartTimes.has(hubVarName)) {
+      timerStartTimes.set(hubVarName, Date.now())
     }
+    const startTime = timerStartTimes.get(hubVarName)!
 
     const update = () => {
-      if (startTime === null) return;
       const elapsed = Math.floor((Date.now() - startTime) / 1000)
-      const newSecondsLeft = Math.max(0, totalSeconds - elapsed)
-      setSecondsLeft(newSecondsLeft)
+      setSecondsLeft(Math.max(0, totalSeconds - elapsed))
     }
 
     update()
     const interval = setInterval(update, 1000)
     return () => clearInterval(interval)
-  }, [isOn, hubVarName, hubVarValue, startTime])
+  }, [isOn, hubVarName, hubVarValue])
 
-  const showAutoOff = isOn && hubVarName && secondsLeft !== null
-  const badgeClass = getBadgeColors(label, isOn)
+  // Blue palette for a water-themed tile
+  const badgeClass = isOn
+    ? 'bg-blue-600 text-white border-blue-400'
+    : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+
+  const countdownVisible = isOn && secondsLeft !== null
 
   return (
     <button
@@ -89,10 +76,20 @@ export function WaterisonTile({ deviceId: propDeviceId, label, hubVarName }: Pro
     >
       <div className="flex flex-col leading-tight">
         <span>{label}</span>
-        {showAutoOff && (
-          secondsLeft > 0 
-            ? <span className="text-[11px] font-normal mt-0.5">Auto-off: {formatCountdown(secondsLeft)}</span>
-            : <span className="text-[11px] font-normal mt-0.5">Timer Has Completed</span>
+        {countdownVisible && (
+          secondsLeft > 0 ? (
+            <>
+              <span className="text-xl font-bold tabular-nums leading-tight mt-1">
+                {formatCountdown(secondsLeft)}
+              </span>
+              <span className="text-[10px] font-normal opacity-80">until auto-off</span>
+            </>
+          ) : (
+            <span className="text-[11px] font-normal mt-1">Timer Has Completed</span>
+          )
+        )}
+        {isOn && secondsLeft === null && (
+          <span className="text-[10px] font-normal opacity-80 mt-1">waiting for timer…</span>
         )}
       </div>
     </button>

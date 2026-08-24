@@ -4,6 +4,10 @@ import { useCommand } from '../../hooks/useCommand'
 
 interface Props { deviceId: string; label: string; hubVarName?: string }
 
+/** Global map of timer start times keyed by hubVarName. Persists across component unmounts
+ *  so the countdown doesn't restart from full when navigating away from and back to a group page. */
+const timerStartTimes = new Map<string, number>()
+
 function getBadgeColors(label: string, isOn: boolean): string {
   if (!isOn) return 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
   const l = label.toLowerCase()
@@ -29,53 +33,44 @@ export function ConnectorSwitchTile({ deviceId: propDeviceId, label, hubVarName 
   const hubVarValue = useHubVariable(hubVarName ?? '')
   const [execute] = useCommand()
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null)
-  const [startTime, setStartTime] = useState<number | null>(null)
 
   const toggle = () => {
     const next = switchState === 'on' ? 'off' : 'on'
     execute({ deviceId, command: next, optimisticAttribute: 'switch', optimisticValue: next })
-    
+
     // When turning off the switch, reset the timer state
     if (next === 'off') {
       setSecondsLeft(null)
-      setStartTime(null)
+      timerStartTimes.delete(hubVarName ?? '')
     }
   }
 
   const isOn = switchState === 'on'
 
   useEffect(() => {
-    // Only start timer when switch is on and we have a valid hubVarValue
-    if (!isOn || !hubVarName) {
-      setSecondsLeft(null)
-      setStartTime(null)
-      return
-    }
-
-    // If we don't yet have a valid hub variable value, wait for it
-    if (hubVarValue === undefined || hubVarValue === null) {
+    if (!isOn || !hubVarName || hubVarValue === undefined || hubVarValue === null) {
+      if (!isOn) timerStartTimes.delete(hubVarName ?? '')
       setSecondsLeft(null)
       return
     }
 
     const totalSeconds = Number(hubVarValue) * 60
 
-    // Set the start time for this specific tile instance when we have the first valid value
-    if (startTime === null) {
-      setStartTime(Date.now())
+    // Anchor the countdown once per "on" period, persisted across unmounts.
+    if (!timerStartTimes.has(hubVarName)) {
+      timerStartTimes.set(hubVarName, Date.now())
     }
+    const startTime = timerStartTimes.get(hubVarName)!
 
     const update = () => {
-      if (startTime === null) return;
       const elapsed = Math.floor((Date.now() - startTime) / 1000)
-      const newSecondsLeft = Math.max(0, totalSeconds - elapsed)
-      setSecondsLeft(newSecondsLeft)
+      setSecondsLeft(Math.max(0, totalSeconds - elapsed))
     }
 
     update()
     const interval = setInterval(update, 1000)
     return () => clearInterval(interval)
-  }, [isOn, hubVarName, hubVarValue, startTime])
+  }, [isOn, hubVarName, hubVarValue])
 
   const showAutoOff = isOn && hubVarName && secondsLeft !== null
   const badgeClass = getBadgeColors(label, isOn)
@@ -90,7 +85,7 @@ export function ConnectorSwitchTile({ deviceId: propDeviceId, label, hubVarName 
       <div className="flex flex-col leading-tight">
         <span>{label}</span>
         {showAutoOff && (
-          secondsLeft > 0 
+          secondsLeft > 0
             ? <span className="text-[11px] font-normal mt-0.5">Auto-off: {formatCountdown(secondsLeft)}</span>
             : <span className="text-[11px] font-normal mt-0.5">Timer Has Completed</span>
         )}

@@ -11,6 +11,7 @@ enum class TileType {
     BUTTON,
     LOCK,
     CONNECTOR,
+    WATERISON,
     HUB_VARIABLE,
     HSM,
     MODE,

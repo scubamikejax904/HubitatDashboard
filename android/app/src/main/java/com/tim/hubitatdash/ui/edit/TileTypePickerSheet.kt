@@ -29,6 +29,7 @@ private fun TileType.displayName(): String = when (this) {
     TileType.DIMMER      -> "Dimmer (Level)"
     TileType.RGBW        -> "Color Light (RGBW)"
     TileType.CONNECTOR   -> "Connector (On/Off)"
+    TileType.WATERISON   -> "Water Is On (countdown)"
     TileType.LOCK        -> "Lock"
     TileType.CONTACT     -> "Contact Sensor"
     TileType.MOTION      -> "Motion Sensor"

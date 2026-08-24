@@ -72,6 +72,7 @@ class GroupExportManager @Inject constructor(
         TileType.BUTTON         to "button",
         TileType.LOCK           to "lock",
         TileType.CONNECTOR      to "connector",
+        TileType.WATERISON      to "waterison",
         TileType.HUB_VARIABLE   to "hub-variable",
         TileType.HSM            to "hsm",
         TileType.MODE           to "mode",

@@ -36,6 +36,7 @@ import com.tim.hubitatdash.ui.tiles.RGBWTile
 import com.tim.hubitatdash.ui.tiles.RingDetectionTile
 import com.tim.hubitatdash.ui.tiles.SwitchTile
 import com.tim.hubitatdash.ui.tiles.TemperatureTile
+import com.tim.hubitatdash.ui.tiles.WaterisonTile
 
 // Maps tile type + device state → accent Color and whether to highlight the card border.
 // Colors match the web dashboard palette (see TileTokens).
@@ -150,6 +151,7 @@ fun TileCard(
             when (tile.tileType) {
                 TileType.SWITCH -> SwitchTile(tile, device, onCommand)
                 TileType.CONNECTOR -> ConnectorTile(tile, device, onCommand)
+                TileType.WATERISON -> WaterisonTile(tile, device, hubVariables, onCommand)
                 TileType.DIMMER -> DimmerTile(tile, device, onCommand)
                 TileType.RGBW -> RGBWTile(tile, device, onCommand)
                 TileType.CONTACT -> ContactTile(tile, device)
