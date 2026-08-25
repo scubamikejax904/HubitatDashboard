@@ -50,7 +50,11 @@ export function availableTileTypes(device: DeviceState): TileType[] {
 
   if ('hue' in attrs || cmds.includes('setColor')) types.push('rgbw')
   if ('level' in attrs && cmds.includes('setLevel') && 'switch' in attrs) types.push('dimmer')
-  if ('switch' in attrs) types.push('switch')
+  if ('switch' in attrs) {
+    types.push('switch')
+    types.push('connector')
+    types.push('waterison')
+  }
   if ('lock' in attrs) types.push('lock')
   if ('contact' in attrs) types.push('contact')
   if ('motion' in attrs) types.push('motion')
@@ -75,4 +79,6 @@ export const TILE_TYPE_LABELS: Record<string, string> = {
   'temperature':  'Temperature',
   'button':       'Button',
   'battery':      'Battery',
+  'connector':    'Connector',
+  'waterison':    'Water Is On',
 }
