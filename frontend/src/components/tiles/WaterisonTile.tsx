@@ -21,7 +21,9 @@ export function WaterisonTile({ deviceId: propDeviceId, label, hubVarName }: Pro
   const resolvedByLabel = useDeviceIdByLabel(label)
   const deviceId = propDeviceId || resolvedByLabel
   const switchState = useDeviceAttribute(deviceId, 'switch')
-  const hubVarValue = useHubVariable(hubVarName ?? '')
+  // Default to the standard water auto-off variable when none is configured for this tile
+  const varName = hubVarName ?? 'WaterTimeout'
+  const hubVarValue = useHubVariable(varName)
   const [execute] = useCommand()
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null)
 
@@ -30,25 +32,25 @@ export function WaterisonTile({ deviceId: propDeviceId, label, hubVarName }: Pro
     execute({ deviceId, command: next, optimisticAttribute: 'switch', optimisticValue: next })
     if (next === 'off') {
       setSecondsLeft(null)
-      timerStartTimes.delete(hubVarName ?? '')
+      timerStartTimes.delete(varName)
     }
   }
 
   const isOn = switchState === 'on'
 
   useEffect(() => {
-    if (!isOn || !hubVarName || hubVarValue === undefined || hubVarValue === null) {
-      if (!isOn) timerStartTimes.delete(hubVarName ?? '')
+    if (!isOn || hubVarValue === undefined || hubVarValue === null) {
+      if (!isOn) timerStartTimes.delete(varName)
       setSecondsLeft(null)
       return
     }
 
     const totalSeconds = Number(hubVarValue) * 60
 
-    if (!timerStartTimes.has(hubVarName)) {
-      timerStartTimes.set(hubVarName, Date.now())
+    if (!timerStartTimes.has(varName)) {
+      timerStartTimes.set(varName, Date.now())
     }
-    const startTime = timerStartTimes.get(hubVarName)!
+    const startTime = timerStartTimes.get(varName)!
 
     const update = () => {
       const elapsed = Math.floor((Date.now() - startTime) / 1000)
@@ -58,7 +60,7 @@ export function WaterisonTile({ deviceId: propDeviceId, label, hubVarName }: Pro
     update()
     const interval = setInterval(update, 1000)
     return () => clearInterval(interval)
-  }, [isOn, hubVarName, hubVarValue])
+  }, [isOn, varName, hubVarValue])
 
   // Blue palette for a water-themed tile
   const badgeClass = isOn
