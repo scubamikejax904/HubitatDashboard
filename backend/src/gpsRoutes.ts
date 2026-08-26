@@ -17,8 +17,11 @@ interface FilterQuery {
   tzOffset?: string;
 }
 
+/** A GPS point with an optional device id, as returned by the data source. */
+type FilteredPoint = GpsPoint & { device?: string };
+
 /** Shared date filtering (mirrors the GET handler) with timezone offset handling. */
-function filterPoints(data: GpsPoint[], q: FilterQuery): GpsPoint[] {
+function filterPoints(data: FilteredPoint[], q: FilterQuery): FilteredPoint[] {
   const { startDate, endDate, tzOffset } = q;
   if (!startDate && !endDate) return data;
 
@@ -136,8 +139,9 @@ export async function gpsRoutes(fastify: FastifyInstance): Promise<void> {
       });
     }
 
-    const { startDate, endDate, tzOffset, provider } = req.query as FilterQuery & {
+    const { startDate, endDate, tzOffset, provider, device } = req.query as FilterQuery & {
       provider?: string;
+      device?: string;
     };
     const providerId = provider ?? 'ollama';
 
@@ -151,11 +155,43 @@ export async function gpsRoutes(fastify: FastifyInstance): Promise<void> {
         });
       }
 
+      // Detect stops PER DEVICE. Merging devices corrupts detection (a moving
+      // phone + a home-stationary phone interleave and split/merge clusters),
+      // so we pick one target device — the one that traveled — and summarize it.
+      const byDevice = new Map<string, FilteredPoint[]>();
+      for (const p of filtered) {
+        const d = p.device ?? '';
+        if (!byDevice.has(d)) byDevice.set(d, []);
+        byDevice.get(d)!.push(p);
+      }
+
+      let targetDev: string;
+      if (device && byDevice.has(device)) {
+        targetDev = device;
+      } else {
+        // Auto-select the device with the largest geographic span (the traveler).
+        targetDev = '';
+        let bestSpan = -1;
+        for (const [d, pts] of byDevice) {
+          const span = haversineMeters(
+            [Math.min(...pts.map((p) => p.lat)), Math.min(...pts.map((p) => p.long))],
+            [Math.max(...pts.map((p) => p.lat)), Math.max(...pts.map((p) => p.long))],
+          );
+          if (span > bestSpan) {
+            bestSpan = span;
+            targetDev = d;
+          }
+        }
+        if (!targetDev) targetDev = byDevice.keys().next().value as string;
+      }
+
+      const targetPoints = byDevice.get(targetDev) ?? filtered;
+
       const opts = {
         minStopMinutes: 4,
         radiusMeters: 75,
       };
-      const trip = summarizeTrip(filtered, opts);
+      const trip = summarizeTrip(targetPoints, opts);
 
       // Reverse-geocode stop centroids + trip endpoints, and try to name the
       // nearest business (Overpass) so parking-lot stops resolve to a real POI.
@@ -200,7 +236,10 @@ export async function gpsRoutes(fastify: FastifyInstance): Promise<void> {
       }
 
       const userPayload = JSON.stringify({
-        dateRange: { start: filtered[0].timestamp, end: filtered[filtered.length - 1].timestamp },
+        dateRange: {
+          start: targetPoints[0].timestamp,
+          end: targetPoints[targetPoints.length - 1].timestamp,
+        },
         stops: geocodedStops.map((s) => ({
           place: s.place,
           locationHint: s.locationHint,
@@ -218,6 +257,8 @@ export async function gpsRoutes(fastify: FastifyInstance): Promise<void> {
         summary,
         provider: providerId,
         providerLabel: getProviderLabel(providerId) ?? providerId,
+        device: targetDev,
+        devices: [...byDevice.keys()],
         stops: geocodedStops,
         legs: trip.legs,
         totalMiles: trip.totalMiles,

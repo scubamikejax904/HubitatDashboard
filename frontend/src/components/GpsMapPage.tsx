@@ -78,8 +78,10 @@ export function GpsMapPage() {
   // AI trip summary state
   const [providers, setProviders] = useState<{ id: string; label: string }[]>([])
   const [selectedProvider, setSelectedProvider] = useState('ollama')
+  const [summaryDevice, setSummaryDevice] = useState('') // '' = auto (traveler)
   const [summary, setSummary] = useState<string | null>(null)
   const [summaryProvider, setSummaryProvider] = useState('') // label that produced the summary
+  const [summaryDeviceUsed, setSummaryDeviceUsed] = useState('') // device actually summarized
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [summaryError, setSummaryError] = useState<string | null>(null)
 
@@ -145,6 +147,7 @@ export function GpsMapPage() {
       if (endDate) params.set('endDate', endDate)
       params.set('tzOffset', String(new Date().getTimezoneOffset()))
       if (selectedProvider) params.set('provider', selectedProvider)
+      if (summaryDevice) params.set('device', summaryDevice)
       const res = await fetch(`/api/gps-track/summary?${params.toString()}`, { method: 'POST' })
       if (!res.ok) {
         const body = await res.json().catch(() => ({ message: `HTTP ${res.status}` }))
@@ -153,15 +156,17 @@ export function GpsMapPage() {
       const json = (await res.json()) as {
         summary: string
         providerLabel?: string
+        device?: string
       }
       setSummary(json.summary ?? '')
       setSummaryProvider(json.providerLabel ?? '')
+      setSummaryDeviceUsed(json.device ?? '')
     } catch (e) {
       setSummaryError(e instanceof Error ? e.message : String(e))
     } finally {
       setSummaryLoading(false)
     }
-  }, [startDate, endDate, selectedProvider])
+  }, [startDate, endDate, selectedProvider, summaryDevice])
 
   useEffect(() => {
     fetchData()
@@ -178,6 +183,12 @@ export function GpsMapPage() {
   const sortedPoints = useMemo(
     () => [...data].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()),
     [data],
+  )
+
+  // Distinct devices in the current data (for the summary device selector)
+  const uniqueDevices = useMemo(
+    () => [...new Set(sortedPoints.map((p) => p.device ?? '').filter(Boolean))],
+    [sortedPoints],
   )
 
   // Polyline path
@@ -316,6 +327,20 @@ export function GpsMapPage() {
             </select>
           )}
 
+          {uniqueDevices.length > 1 && (
+            <select
+              value={summaryDevice}
+              onChange={(e) => setSummaryDevice(e.target.value)}
+              title="Which tracked phone to summarize (Auto picks the one that traveled)"
+              className="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+            >
+              <option value="">Auto (traveler)</option>
+              {uniqueDevices.map((d) => (
+                <option key={d} value={d}>{d || 'Unknown'}</option>
+              ))}
+            </select>
+          )}
+
           <button
             onClick={generateSummary}
             disabled={loading || summaryLoading || sortedPoints.length < 2}
@@ -365,7 +390,7 @@ export function GpsMapPage() {
               <span>Trip Summary</span>
               {summaryProvider && (
                 <span className="text-xs font-normal text-green-600 dark:text-green-400">
-                  ({summaryProvider})
+                  ({summaryProvider}{summaryDeviceUsed ? ` · ${summaryDeviceUsed}` : ''})
                 </span>
               )}
             </div>
