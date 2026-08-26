@@ -57,20 +57,25 @@ disabled. If only one is present, no toggle shows and that provider is used.
 1. **Detect stops** (server-side, deterministic): points that cluster within
    ~75 m for at least ~4 minutes are treated as one stop. Travel legs are the
    gaps between stops, with haversine mileage.
-2. **Reverse geocode** each stop via **OpenStreetMap Nominatim** (free, no key)
-   to get a place label — a business name if the stop is on a mapped point of
-   interest, otherwise a street address / town. Labels are cached in memory and
-   requests are rate-limited to ~1/sec to respect Nominatim's fair-use policy.
+2. **Name each stop** — two lookups run in parallel and resolve the GPS centroid
+   to a human label:
+   - **Nearest business** via the **Overpass API** (free, no key): finds the
+     closest named shop/amenity/leisure within ~150 m so a parking-lot stop
+     becomes "Hobby Lobby" instead of an address. Results are cached and
+     rate-limited (multiple mirrors with failover).
+   - **Address** via **OpenStreetMap Nominatim** (free, no key) — used when no
+     business is nearby, yielding e.g. "135 Cassady Street, Umatilla".
 3. **Ask the AI** for a narrative, feeding it the structured stops/legs data
-   (not the raw coordinate array). Qwen3 reasoning tags are stripped.
+   (not the raw coordinate array). Qwen3 reasoning tags are stripped, and any
+   `locationHint` ("on US-441 in Mount Dora") is woven into business phrasing.
 
-**Note on business names:** the LLM cannot invent them from coordinates.
-Reverse geocoding supplies "Hobby Lobby on US-441 in Eustis" only when the
-phone's stop location lands on a business that is mapped in OpenStreetMap.
-Off-the-grid stops still get a town / street label.
+**Note on business names:** the LLM cannot invent them from coordinates — they
+are resolved by the Overpass/Nominatim layer. If the phone's parked location is
+not on a mapped business, the stop falls back to a town / street label.
 
-**Dependencies:** reverse geocoding requires outbound internet access from the
-backend to `nominatim.openstreetmap.org`. Ollama summaries keep trip data
+**Dependencies:** naming stops requires outbound internet access from the
+backend to `nominatim.openstreetmap.org` and a public Overpass mirror
+(`overpass-api.de` first, with fallbacks). Ollama summaries keep trip data
 on-LAN; OpenRouter summaries send it to the cloud — choose in the UI.
 
 ---

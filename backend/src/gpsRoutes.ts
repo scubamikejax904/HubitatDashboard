@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { fetchGpsData, isGpsConfigured } from './gpsService.js';
 import { summarizeTrip, type GpsPoint } from './gpsAnalysis.js';
 import { reverseGeocode } from './reverseGeocode.js';
+import { findNearbyPoi } from './overpassPoi.js';
 import {
   chatWith,
   getProviderLabel,
@@ -38,11 +39,12 @@ function filterPoints(data: GpsPoint[], q: FilterQuery): GpsPoint[] {
 
 const SYSTEM_PROMPT =
   'You are a concise trip narrator. Given structured GPS trip data (stops with place ' +
-  'names, addresses, and durations; travel legs with durations and distances), write a ' +
-  'short human-readable summary paragraph. For businesses use their name with a location ' +
-  'hint, e.g. "Hobby Lobby on US-441 in Eustis". For non-business locations use the street ' +
-  'address. Note how long was spent at each stop and the travel time between stops. ' +
-  'Plain text, no markdown headers or bullets, under 200 words.';
+  'names, addresses/location hints, and durations; travel legs with durations and ' +
+  'distances), write a short human-readable summary paragraph. When a stop has a ' +
+  '"locationHint" and is a business, phrase it like "Hobby Lobby on US-441 in Mount Dora". ' +
+  'When a stop is not a business, use its place/address. Note how long was spent at each ' +
+  'stop and the travel time between stops. Plain text, no markdown headers or bullets, ' +
+  'under 200 words.';
 
 export async function gpsRoutes(fastify: FastifyInstance): Promise<void> {
   /**
@@ -126,20 +128,42 @@ export async function gpsRoutes(fastify: FastifyInstance): Promise<void> {
       };
       const trip = summarizeTrip(filtered, opts);
 
-      // Reverse-geocode stop centroids + trip endpoints.
+      // Reverse-geocode stop centroids + trip endpoints, and try to name the
+      // nearest business (Overpass) so parking-lot stops resolve to a real POI.
       const geocodedStops = [];
       for (const s of trip.stops) {
-        const g = await reverseGeocode(s.lat, s.long);
-        geocodedStops.push({
-          ...s,
-          place: g?.label ?? `(${s.lat.toFixed(4)}, ${s.long.toFixed(4)})`,
-        });
+        const [geo, poi] = await Promise.all([
+          reverseGeocode(s.lat, s.long),
+          findNearbyPoi(s.lat, s.long, 150),
+        ]);
+
+        let place: string;
+        let locationHint: string | undefined;
+        let kind: string | undefined;
+
+        if (poi) {
+          place = poi.category
+            ? `${poi.name} (${poi.category})`
+            : poi.name;
+          kind = poi.category;
+          // Location hint e.g. "on US-441 in Mount Dora" for business stops.
+          const road = poi.street ?? geo?.road;
+          const city = poi.city ?? geo?.city;
+          if (road && city) locationHint = `on ${road} in ${city}`;
+          else if (road) locationHint = `on ${road}`;
+          else if (city) locationHint = `in ${city}`;
+        } else {
+          place = geo?.label ?? `(${s.lat.toFixed(4)}, ${s.long.toFixed(4)})`;
+        }
+
+        geocodedStops.push({ ...s, place, locationHint, kind });
       }
 
       const userPayload = JSON.stringify({
         dateRange: { start: filtered[0].timestamp, end: filtered[filtered.length - 1].timestamp },
         stops: geocodedStops.map((s) => ({
           place: s.place,
+          locationHint: s.locationHint,
           arrival: s.arrival,
           departure: s.departure,
           durationMin: s.durationMin,
