@@ -18,6 +18,17 @@ export interface GpsConfig {
   csvUrl?: string;
 }
 
+/** Known home/anchor location — stops near here are labeled as Home. */
+export interface HomeConfig {
+  /** Display label, e.g. "Home (135 Cassady Street, Umatilla)". */
+  label?: string;
+  address?: string;
+  lat: number;
+  long: number;
+  /** Stopping radius around home, meters. Default 200. */
+  radiusM?: number;
+}
+
 export interface OllamaConfig {
   enabled?: boolean;
   baseUrl?: string;
@@ -51,6 +62,7 @@ export interface Config {
   hubPassword?: string;
   databaseUrl?: string;
   gpsMap?: GpsConfig;
+  home?: HomeConfig;
   ollama?: OllamaConfig;
   openrouter?: OpenRouterConfig;
 }

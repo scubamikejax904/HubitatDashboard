@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { config } from './config.js';
 import { fetchGpsData, isGpsConfigured } from './gpsService.js';
 import { summarizeTrip, type GpsPoint } from './gpsAnalysis.js';
 import { reverseGeocode } from './reverseGeocode.js';
@@ -35,6 +36,34 @@ function filterPoints(data: GpsPoint[], q: FilterQuery): GpsPoint[] {
     const t = new Date(item.timestamp).getTime();
     return !isNaN(t) && t >= start && t <= end;
   });
+}
+
+/** Great-circle distance in meters between two [lat, lon] pairs. */
+function haversineMeters(a: [number, number], b: [number, number]): number {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b[0] - a[0]);
+  const dLon = toRad(b[1] - a[1]);
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a[0])) * Math.cos(toRad(b[0])) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+/** Distance-free: is this coordinate within the configured home radius? */
+function isHome(lat: number, long: number): boolean {
+  const h = config.home;
+  if (!h || h.lat === undefined || h.long === undefined) return false;
+  const radiusM = h.radiusM ?? 200;
+  return haversineMeters([lat, long], [h.lat, h.long]) <= radiusM;
+}
+
+/** Label used for a stop that lands on home. */
+function homeLabel(): string {
+  const h = config.home;
+  if (!h) return 'Home';
+  const parts = [h.label || 'Home', h.address].filter(Boolean);
+  return parts.join(' — ') || 'Home';
 }
 
 const SYSTEM_PROMPT =
@@ -132,6 +161,17 @@ export async function gpsRoutes(fastify: FastifyInstance): Promise<void> {
       // nearest business (Overpass) so parking-lot stops resolve to a real POI.
       const geocodedStops = [];
       for (const s of trip.stops) {
+        // Home first — skip external lookups entirely when we know it's home.
+        if (isHome(s.lat, s.long)) {
+          geocodedStops.push({
+            ...s,
+            place: homeLabel(),
+            kind: 'home',
+            locationHint: undefined,
+          });
+          continue;
+        }
+
         const [geo, poi] = await Promise.all([
           reverseGeocode(s.lat, s.long),
           findNearbyPoi(s.lat, s.long, 150),

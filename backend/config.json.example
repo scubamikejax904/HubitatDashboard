@@ -11,6 +11,13 @@
   "gpsMap": {
     "csvUrl": "https://docs.google.com/spreadsheets/d/1EGNmf9XvinmTE5EGZUOBjaoeU1HIvBLHlz33TN0KfcU/export?format=csv&gid=0"
   },
+  "home": {
+    "label": "Home",
+    "address": "135 Cassady Street, Umatilla, FL",
+    "lat": 28.9263,
+    "long": -81.6646,
+    "radiusM": 250
+  },
   "ollama": {
     "enabled": true,
     "baseUrl": "http://192.168.0.175:11434",
