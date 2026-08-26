@@ -29,6 +29,8 @@ export interface OpenRouterConfig {
   enabled?: boolean;
   model?: string;
   timeoutMs?: number;
+  /** Optional API key. Falls back to the OPENROUTER_API_KEY env var. */
+  apiKey?: string;
 }
 
 export interface GpsDataPoint {

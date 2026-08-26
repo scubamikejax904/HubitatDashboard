@@ -7,18 +7,23 @@ import { providerModel, providerTimeout, type ChatProvider } from './aiProviders
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
-/** Enabled only when config.openrouter.enabled === true AND an API key is set in env. */
+/** Enabled when config.openrouter.enabled === true AND an API key is available. */
 function enabled(): boolean {
   const o = config.openrouter;
   if (!o || o.enabled !== true) return false;
-  return Boolean(process.env.OPENROUTER_API_KEY);
+  return Boolean(apiKey());
+}
+
+function apiKey(): string | undefined {
+  return config.openrouter?.apiKey || process.env.OPENROUTER_API_KEY || undefined;
 }
 
 async function chat(system: string, user: string): Promise<string> {
-  const key = process.env.OPENROUTER_API_KEY;
+  const key = apiKey();
   if (!key) {
     throw new Error(
-      'OpenRouter provider selected but OPENROUTER_API_KEY is not set in the backend environment.',
+      'OpenRouter provider selected but no API key is set. Add "apiKey" to the ' +
+        'openrouter section of backend/config.json, or set OPENROUTER_API_KEY in the environment.',
     );
   }
 

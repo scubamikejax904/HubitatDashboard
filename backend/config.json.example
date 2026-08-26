@@ -19,6 +19,7 @@
   "openrouter": {
     "enabled": true,
     "model": "deepseek/deepseek-v4-flash",
-    "timeoutMs": 60000
+    "timeoutMs": 60000,
+    "apiKey": "<your OPENROUTER_API_KEY, or set OPENROUTER_API_KEY env instead>"
   }
 }

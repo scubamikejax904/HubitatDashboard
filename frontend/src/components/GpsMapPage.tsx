@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaf
 import * as L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Filter, Loader2, RotateCw } from 'lucide-react'
+import { ArrowLeft, Filter, Loader2, RotateCw, FileText, Sparkles, X } from 'lucide-react'
 
 const LAYER_OPTIONS = {
   satellite: {
@@ -75,12 +75,35 @@ export function GpsMapPage() {
   const [mapLayer, setMapLayer] = useState<LayerKey>('hybrid')
   const [refreshInterval, setRefreshInterval] = useState(0) // 0 = off, else seconds
 
+  // AI trip summary state
+  const [providers, setProviders] = useState<{ id: string; label: string }[]>([])
+  const [selectedProvider, setSelectedProvider] = useState('ollama')
+  const [summary, setSummary] = useState<string | null>(null)
+  const [summaryProvider, setSummaryProvider] = useState('') // label that produced the summary
+  const [summaryLoading, setSummaryLoading] = useState(false)
+  const [summaryError, setSummaryError] = useState<string | null>(null)
+
   // Check if the backend has the GPS feature configured
   useEffect(() => {
     fetch('/api/gps-track/config')
       .then((r) => r.json())
       .then((cfg: { configured: boolean }) => setConfigured(cfg.configured))
       .catch(() => setConfigured(false))
+  }, [])
+
+  // Discover enabled AI providers so we can render a toggle
+  useEffect(() => {
+    fetch('/api/gps-track/ai-providers')
+      .then((r) => r.json())
+      .then((j: { providers?: { id: string; label: string }[] }) => {
+        const list = j.providers ?? []
+        setProviders(list)
+        if (list.length > 0 && !list.some((p) => p.id === selectedProvider)) {
+          setSelectedProvider(list[0].id)
+        }
+      })
+      .catch(() => setProviders([]))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const fetchData = useCallback(async () => {
@@ -105,6 +128,40 @@ export function GpsMapPage() {
       setLoading(false)
     }
   }, [startDate, endDate])
+
+  // Clear stale summary when the date filter changes
+  useEffect(() => {
+    setSummary(null)
+    setSummaryError(null)
+  }, [startDate, endDate])
+
+  const generateSummary = useCallback(async () => {
+    setSummaryLoading(true)
+    setSummaryError(null)
+    setSummary(null)
+    try {
+      const params = new URLSearchParams()
+      if (startDate) params.set('startDate', startDate)
+      if (endDate) params.set('endDate', endDate)
+      params.set('tzOffset', String(new Date().getTimezoneOffset()))
+      if (selectedProvider) params.set('provider', selectedProvider)
+      const res = await fetch(`/api/gps-track/summary?${params.toString()}`, { method: 'POST' })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ message: `HTTP ${res.status}` }))
+        throw new Error((body as { message?: string }).message ?? `HTTP ${res.status}`)
+      }
+      const json = (await res.json()) as {
+        summary: string
+        providerLabel?: string
+      }
+      setSummary(json.summary ?? '')
+      setSummaryProvider(json.providerLabel ?? '')
+    } catch (e) {
+      setSummaryError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSummaryLoading(false)
+    }
+  }, [startDate, endDate, selectedProvider])
 
   useEffect(() => {
     fetchData()
@@ -245,6 +302,34 @@ export function GpsMapPage() {
             {loading ? <Loader2 size={14} className="animate-spin" /> : <RotateCw size={14} />}
             <span>Refresh</span>
           </button>
+
+          {providers.length > 1 && (
+            <select
+              value={selectedProvider}
+              onChange={(e) => setSelectedProvider(e.target.value)}
+              title="AI provider used for the trip report"
+              className="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+            >
+              {providers.map((p) => (
+                <option key={p.id} value={p.id}>{p.label}</option>
+              ))}
+            </select>
+          )}
+
+          <button
+            onClick={generateSummary}
+            disabled={loading || summaryLoading || sortedPoints.length < 2}
+            className="flex items-center gap-1 px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 transition-colors"
+            title="Ask the AI to summarize the current trip"
+          >
+            {summaryLoading ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Sparkles size={14} />
+            )}
+            <span>Report</span>
+          </button>
+
           <button
             onClick={() => {
               setStartDate('')
@@ -267,6 +352,48 @@ export function GpsMapPage() {
               from {new Date(sortedPoints[0].timestamp).toLocaleString()} to{' '}
               {new Date(sortedPoints[sortedPoints.length - 1].timestamp).toLocaleString()}
             </>
+          )}
+        </div>
+      )}
+
+      {/* AI trip summary */}
+      {(summary || summaryLoading || summaryError) && (
+        <div className="mx-4 mt-2 p-3 rounded border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm font-medium text-green-800 dark:text-green-300">
+              <FileText size={14} />
+              <span>Trip Summary</span>
+              {summaryProvider && (
+                <span className="text-xs font-normal text-green-600 dark:text-green-400">
+                  ({summaryProvider})
+                </span>
+              )}
+            </div>
+            {!summaryLoading && (
+              <button
+                onClick={() => { setSummary(null); setSummaryError(null) }}
+                className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200"
+                title="Dismiss"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+          {summaryLoading && (
+            <div className="mt-2 flex items-center gap-2 text-sm text-green-700 dark:text-green-300">
+              <Loader2 size={14} className="animate-spin" />
+              <span>Asking {providers.find((p) => p.id === selectedProvider)?.label ?? 'AI'} to summarize…</span>
+            </div>
+          )}
+          {summaryError && (
+            <div className="mt-2 text-sm text-red-600 dark:text-red-400 whitespace-pre-wrap">
+              {summaryError}
+            </div>
+          )}
+          {summary && !summaryLoading && (
+            <div className="mt-2 text-sm text-gray-700 dark:text-gray-200 leading-relaxed whitespace-pre-wrap">
+              {summary}
+            </div>
           )}
         </div>
       )}
