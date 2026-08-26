@@ -4,6 +4,7 @@ import { fetchGpsData, isGpsConfigured } from './gpsService.js';
 import { summarizeTrip, type GpsPoint } from './gpsAnalysis.js';
 import { reverseGeocode } from './reverseGeocode.js';
 import { findNearbyPoi } from './overpassPoi.js';
+import { roadLegMiles } from './osrmRoute.js';
 import {
   chatWith,
   getProviderLabel,
@@ -139,9 +140,10 @@ export async function gpsRoutes(fastify: FastifyInstance): Promise<void> {
       });
     }
 
-    const { startDate, endDate, tzOffset, provider, device } = req.query as FilterQuery & {
+    const { startDate, endDate, tzOffset, provider, device, distance } = req.query as FilterQuery & {
       provider?: string;
       device?: string;
+      distance?: string;
     };
     const providerId = provider ?? 'ollama';
 
@@ -235,6 +237,31 @@ export async function gpsRoutes(fastify: FastifyInstance): Promise<void> {
         geocodedStops.push({ ...s, place, locationHint, kind });
       }
 
+      // Convert leg mileage to real road distance when requested (falls back to
+      // crow-flies on any OSRM failure). Anchors mirror summarizeTrip's order:
+      // trip start -> each stop departure -> trip end.
+      let finalLegs = trip.legs;
+      let finalTotalMiles = trip.totalMiles;
+      let distanceMode: 'crow' | 'road' = 'crow';
+      if (distance === 'road') {
+        const anchors: [number, number][] = [
+          [targetPoints[0].lat, targetPoints[0].long],
+          ...trip.stops.map((s) => [s.lat, s.long] as [number, number]),
+          [targetPoints[targetPoints.length - 1].lat, targetPoints[targetPoints.length - 1].long],
+        ];
+        try {
+          const roadMiles = await roadLegMiles(anchors);
+          if (roadMiles.length === trip.legs.length) {
+            finalLegs = trip.legs.map((leg, i) => ({ ...leg, miles: Math.round(roadMiles[i] * 10) / 10 }));
+            finalTotalMiles = Math.round(roadMiles.reduce((a, b) => a + b, 0) * 10) / 10;
+            distanceMode = 'road';
+          }
+        } catch (err) {
+          // Keep crow-flies; log quietly.
+          fastify.log.warn({ err }, 'OSRM road distance unavailable, falling back to crow-flies');
+        }
+      }
+
       const userPayload = JSON.stringify({
         dateRange: {
           start: targetPoints[0].timestamp,
@@ -247,8 +274,8 @@ export async function gpsRoutes(fastify: FastifyInstance): Promise<void> {
           departure: s.departure,
           durationMin: s.durationMin,
         })),
-        legs: trip.legs,
-        totalMiles: trip.totalMiles,
+        legs: finalLegs,
+        totalMiles: finalTotalMiles,
       });
 
       const summary = await chatWith(providerId, SYSTEM_PROMPT, userPayload);
@@ -259,9 +286,10 @@ export async function gpsRoutes(fastify: FastifyInstance): Promise<void> {
         providerLabel: getProviderLabel(providerId) ?? providerId,
         device: targetDev,
         devices: [...byDevice.keys()],
+        distanceMode,
         stops: geocodedStops,
-        legs: trip.legs,
-        totalMiles: trip.totalMiles,
+        legs: finalLegs,
+        totalMiles: finalTotalMiles,
       };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

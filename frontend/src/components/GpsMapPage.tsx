@@ -82,6 +82,8 @@ export function GpsMapPage() {
   const [summary, setSummary] = useState<string | null>(null)
   const [summaryProvider, setSummaryProvider] = useState('') // label that produced the summary
   const [summaryDeviceUsed, setSummaryDeviceUsed] = useState('') // device actually summarized
+  const [summaryRoadDistance, setSummaryRoadDistance] = useState(false) // use road vs crow-flies
+  const [summaryDistanceMode, setSummaryDistanceMode] = useState<'crow' | 'road'>('crow') // what was returned
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [summaryError, setSummaryError] = useState<string | null>(null)
 
@@ -148,6 +150,7 @@ export function GpsMapPage() {
       params.set('tzOffset', String(new Date().getTimezoneOffset()))
       if (selectedProvider) params.set('provider', selectedProvider)
       if (summaryDevice) params.set('device', summaryDevice)
+      if (summaryRoadDistance) params.set('distance', 'road')
       const res = await fetch(`/api/gps-track/summary?${params.toString()}`, { method: 'POST' })
       if (!res.ok) {
         const body = await res.json().catch(() => ({ message: `HTTP ${res.status}` }))
@@ -157,16 +160,18 @@ export function GpsMapPage() {
         summary: string
         providerLabel?: string
         device?: string
+        distanceMode?: 'crow' | 'road'
       }
       setSummary(json.summary ?? '')
       setSummaryProvider(json.providerLabel ?? '')
       setSummaryDeviceUsed(json.device ?? '')
+      setSummaryDistanceMode(json.distanceMode ?? 'crow')
     } catch (e) {
       setSummaryError(e instanceof Error ? e.message : String(e))
     } finally {
       setSummaryLoading(false)
     }
-  }, [startDate, endDate, selectedProvider, summaryDevice])
+  }, [startDate, endDate, selectedProvider, summaryDevice, summaryRoadDistance])
 
   useEffect(() => {
     fetchData()
@@ -341,6 +346,19 @@ export function GpsMapPage() {
             </select>
           )}
 
+          <label
+            className="flex items-center gap-1.5 px-1 text-sm text-gray-700 dark:text-gray-200 select-none cursor-pointer"
+            title="Use real road distance (OSRM) instead of straight-line distance for travel legs"
+          >
+            <input
+              type="checkbox"
+              checked={summaryRoadDistance}
+              onChange={(e) => setSummaryRoadDistance(e.target.checked)}
+              className="accent-green-600"
+            />
+            <span>Road dist.</span>
+          </label>
+
           <button
             onClick={generateSummary}
             disabled={loading || summaryLoading || sortedPoints.length < 2}
@@ -390,7 +408,8 @@ export function GpsMapPage() {
               <span>Trip Summary</span>
               {summaryProvider && (
                 <span className="text-xs font-normal text-green-600 dark:text-green-400">
-                  ({summaryProvider}{summaryDeviceUsed ? ` · ${summaryDeviceUsed}` : ''})
+                  ({summaryProvider}{summaryDeviceUsed ? ` · ${summaryDeviceUsed}` : ''}
+                  {summary ? ` · ${summaryDistanceMode === 'road' ? 'road' : 'crow'}` : ''})
                 </span>
               )}
             </div>
