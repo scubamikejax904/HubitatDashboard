@@ -26,6 +26,14 @@ disabled. If only one is present, no toggle shows and that provider is used.
 {
   "gpsMap": { "csvUrl": "https://docs.google.com/spreadsheets/d/.../export?format=csv&gid=0" },
 
+  "home": {
+    "label": "Home",
+    "address": "135 Cassady Street, Umatilla, FL",
+    "lat": 28.9263,
+    "long": -81.6646,
+    "radiusM": 250
+  },
+
   "ollama": {
     "enabled": true,
     "baseUrl": "http://192.168.0.175:11434",
@@ -40,6 +48,14 @@ disabled. If only one is present, no toggle shows and that provider is used.
   }
 }
 ```
+
+### `home` (optional, recommended)
+
+Known anchor/location. Any stop whose centroid falls within `radiusM` meters of
+`lat`/`long` is labeled **"Home — 135 Cassady Street, Umatilla, FL"** and is
+**excluded** from the business lookup. This stops a nearby business (e.g. an
+adjacent worship center) from being wrongly attributed to your home stop.
+`radiusM` defaults to 200 m if omitted.
 
 ### Env overrides
 
