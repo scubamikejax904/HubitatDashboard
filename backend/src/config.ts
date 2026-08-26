@@ -31,6 +31,14 @@ function loadConfig(): Config {
     cfg['databaseUrl'] = process.env.DATABASE_URL;
   }
 
+  // AI provider env overrides
+  if (process.env.OLLAMA_BASE_URL) {
+    cfg['ollama'] = { ...(cfg['ollama'] as object ?? {}), baseUrl: process.env.OLLAMA_BASE_URL };
+  }
+  if (process.env.OLLAMA_MODEL) {
+    cfg['ollama'] = { ...(cfg['ollama'] as object ?? {}), model: process.env.OLLAMA_MODEL };
+  }
+
   return cfg as unknown as Config;
 }
 

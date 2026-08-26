@@ -18,6 +18,19 @@ export interface GpsConfig {
   csvUrl?: string;
 }
 
+export interface OllamaConfig {
+  enabled?: boolean;
+  baseUrl?: string;
+  model?: string;
+  timeoutMs?: number;
+}
+
+export interface OpenRouterConfig {
+  enabled?: boolean;
+  model?: string;
+  timeoutMs?: number;
+}
+
 export interface GpsDataPoint {
   timestamp: string;
   lat: number;
@@ -36,4 +49,6 @@ export interface Config {
   hubPassword?: string;
   databaseUrl?: string;
   gpsMap?: GpsConfig;
+  ollama?: OllamaConfig;
+  openrouter?: OpenRouterConfig;
 }

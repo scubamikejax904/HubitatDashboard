@@ -10,5 +10,15 @@
   "databaseUrl": "mysql://bh:***/127.0.0.1:3306/hubitat_dashboard",
   "gpsMap": {
     "csvUrl": "https://docs.google.com/spreadsheets/d/1EGNmf9XvinmTE5EGZUOBjaoeU1HIvBLHlz33TN0KfcU/export?format=csv&gid=0"
+  },
+  "ollama": {
+    "enabled": true,
+    "baseUrl": "http://192.168.0.175:11434",
+    "model": "qwen3.8:27b"
+  },
+  "openrouter": {
+    "enabled": true,
+    "model": "deepseek/deepseek-v4-flash",
+    "timeoutMs": 60000
   }
 }
