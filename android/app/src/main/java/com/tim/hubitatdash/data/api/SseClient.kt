@@ -94,11 +94,19 @@ class SseClient @Inject constructor(
     private fun parseEvent(data: String): SSEEvent? {
         return try {
             val json = gson.fromJson(data, JsonObject::class.java)
-            // Hubitat SSE format: {"deviceId":"123","name":"switch","value":"on","displayName":"..."}
-            val deviceId = json.get("deviceId")?.asString ?: return null
-            val attribute = json.get("name")?.asString ?: return null
+            // Hub value-change events arrive via Maker SSE with a `name` like
+            // "variable:<varName>" (source is typically LOCATION, no real deviceId).
+            val rawName = json.get("name")?.asString ?: return null
             val value = json.get("value")?.asString
-            SSEEvent(deviceId = deviceId, attribute = attribute, value = value)
+
+            if (rawName.startsWith("variable:")) {
+                // Hub variable change → normalize to deviceId="hubvar", attribute=varName
+                val varName = rawName.removePrefix("variable:")
+                return SSEEvent(deviceId = "hubvar", attribute = varName, value = value)
+            }
+
+            val deviceId = json.get("deviceId")?.asString ?: return null
+            SSEEvent(deviceId = deviceId, attribute = rawName, value = value)
         } catch (e: Exception) {
             null
         }

@@ -1,7 +1,7 @@
-import { useState, useContext } from 'react'
+import { useState, useContext, useMemo } from 'react'
 import { Plus, Minus, X, ChevronDown } from 'lucide-react'
 import { useGroupStore } from '../../store/groupStore'
-import { useDeviceStore, useDeviceAttribute, useIsPending } from '../../store/deviceStore'
+import { useDeviceStore, useDeviceAttribute, useIsPending, useHubVariable } from '../../store/deviceStore'
 import { useCommand } from '../../hooks/useCommand'
 import { EditModeContext } from '../../context/EditModeContext'
 import { autoTileType, TILE_TYPE_LABELS, availableTileTypes } from '../../utils/autoTileType'
@@ -143,6 +143,26 @@ function MiniDeviceCell({ deviceId, tileType, label, labelNode }: { deviceId: st
   }
 }
 
+/** Hub variables that are temperatures in °F — show a °F suffix. */
+const TEMP_HUBVARS = new Set([
+  'OfficeFreezerTemp',
+  'ConcreteFreezerTemp',
+])
+
+/** Hub-variable cell: shows a label + the variable's live value (read-only). */
+function MiniHubVar({ hubVarName, label, labelNode }: { hubVarName: string; label: string; labelNode?: React.ReactNode }) {
+  const value = useHubVariable(hubVarName)
+  const displayValue = value !== undefined ? `${String(value)}${TEMP_HUBVARS.has(hubVarName) ? '°F' : ''}` : '—'
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      {labelNode ?? <p className="text-[10px] text-gray-900 dark:text-white truncate w-full text-center leading-tight">{label}</p>}
+      <p className="text-xs font-semibold text-gray-900 dark:text-gray-100 tabular-nums">
+        {displayValue}
+      </p>
+    </div>
+  )
+}
+
 // ── Type selector dropdown ───────────────────────────────────────────────────
 
 function TypeSelector({
@@ -187,16 +207,31 @@ function TypeSelector({
 function MiniDevicePicker({
   tileId,
   existingDeviceIds,
+  existingHubVars,
   onClose,
-}: { tileId: string; existingDeviceIds: Set<string>; onClose: () => void }) {
+}: { tileId: string; existingDeviceIds: Set<string>; existingHubVars: Set<string>; onClose: () => void }) {
   const [query, setQuery] = useState('')
   const devices = useDeviceStore((s) => s.devices)
+  // Select the stable object reference (NOT Object.keys() — that returns a new
+  // array each store update and causes an infinite re-render/crash).
+  const hubVariables = useDeviceStore((s) => s.hubVariables)
+  const hubVarNames = useMemo(() => Object.keys(hubVariables), [hubVariables])
   const addDeviceToMultiTile = useGroupStore((s) => s.addDeviceToMultiTile)
+  const addHubVarToMultiTile = useGroupStore((s) => s.addHubVarToMultiTile)
 
-  const filtered = Object.values(devices)
+  const q = query.toLowerCase().trim()
+
+  const filteredDevices = Object.values(devices)
     .filter((d) => !existingDeviceIds.has(d.id))
-    .filter((d) => !query || d.label.toLowerCase().includes(query.toLowerCase()))
+    .filter((d) => !q || d.label.toLowerCase().includes(q))
     .sort((a, b) => a.label.localeCompare(b.label))
+
+  const filteredHubVars = hubVarNames
+    .filter((n) => !existingHubVars.has(n))
+    .filter((n) => !q || n.toLowerCase().includes(q))
+    .sort((a, b) => a.localeCompare(b))
+
+  const showSections = !q
 
   return (
     <div
@@ -213,15 +248,30 @@ function MiniDevicePicker({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search devices…"
+            placeholder="Search devices & variables…"
             autoFocus
             className="w-full px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
         <div className="flex-1 overflow-y-auto">
-          {filtered.length === 0
-            ? <p className="px-4 py-3 text-sm text-gray-400 text-center">No devices available.</p>
-            : filtered.map((d) => (
+          {filteredHubVars.length > 0 && showSections && (
+            <div className="border-b border-gray-100 dark:border-gray-700">
+              <p className="px-4 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Hub Variables</p>
+              {filteredHubVars.map((name) => (
+                <button
+                  key={name}
+                  onClick={() => { addHubVarToMultiTile(tileId, name); onClose() }}
+                  className="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-left text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700/50 last:border-0"
+                >
+                  <span className="flex-1 truncate font-medium">{name}</span>
+                  <span className="text-[10px] text-blue-400 font-mono">hub-var</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {filteredDevices.length === 0 && filteredHubVars.length === 0
+            ? <p className="px-4 py-3 text-sm text-gray-400 text-center">No devices or variables available.</p>
+            : filteredDevices.map((d) => (
                 <button
                   key={d.id}
                   onClick={() => { addDeviceToMultiTile(tileId, d.id); onClose() }}
@@ -249,6 +299,7 @@ export function MultiDeviceTile({ tileId, groupId }: Props) {
   const tileTypeOverrides = useGroupStore((s) => s.tileTypeOverrides[groupId] ?? EMPTY_TYPE_OVERRIDES)
   const updateMultiTileConfig = useGroupStore((s) => s.updateMultiTileConfig)
   const removeDeviceFromMultiTile = useGroupStore((s) => s.removeDeviceFromMultiTile)
+  const removeHubVarFromMultiTile = useGroupStore((s) => s.removeHubVarFromMultiTile)
   const removeMultiTile = useGroupStore((s) => s.removeMultiTile)
   const devices = useDeviceStore((s) => s.devices)
   const [editingCellId, setEditingCellId] = useState<string | null>(null)
@@ -257,6 +308,7 @@ export function MultiDeviceTile({ tileId, groupId }: Props) {
   if (!cfg) return null
 
   const { deviceIds, cols, label = 'Panel' } = cfg
+  const hubVarNames = cfg.hubVarNames ?? []
   const clampedCols = Math.max(1, Math.min(cols, 4))
   const cellLabels = cfg.labels ?? {}
 
@@ -275,6 +327,7 @@ export function MultiDeviceTile({ tileId, groupId }: Props) {
   }
 
   const existingSet = new Set(deviceIds)
+  const existingHubVars = new Set(hubVarNames)
 
   return (
     <div className="rounded-xl border-2 border-indigo-400 dark:border-indigo-500 shadow-sm bg-white dark:bg-gray-800 p-2">
@@ -382,6 +435,24 @@ export function MultiDeviceTile({ tileId, groupId }: Props) {
           )
         })}
 
+        {hubVarNames.map((hubVarName) => (
+          <div
+            key={`hub-var-${hubVarName}`}
+            className="relative flex flex-col items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-200 dark:bg-gray-700 p-1.5 min-h-[44px]"
+          >
+            <MiniHubVar hubVarName={hubVarName} label={hubVarName} />
+            {editMode && (
+              <button
+                onClick={() => removeHubVarFromMultiTile(tileId, hubVarName)}
+                className="absolute -top-1 -right-1 z-10 rounded-full bg-red-500 text-white p-0.5 shadow"
+                aria-label={`Remove ${hubVarName}`}
+              >
+                <X size={8} />
+              </button>
+            )}
+          </div>
+        ))}
+
         {/* Add button */}
         {editMode && (
           <button
@@ -398,6 +469,7 @@ export function MultiDeviceTile({ tileId, groupId }: Props) {
         <MiniDevicePicker
           tileId={tileId}
           existingDeviceIds={existingSet}
+          existingHubVars={existingHubVars}
           onClose={() => setShowPicker(false)}
         />
       )}

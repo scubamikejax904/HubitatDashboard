@@ -82,6 +82,8 @@ const SPECIAL_TILE_MAP: Record<string, TileConfig> = {
   '__civildusk__': { tileType: 'hub-variable' as TileType, label: 'Civil Dusk', hubVarName: 'CivilDusk' },
   '__astronomicaldusk__': { tileType: 'hub-variable' as TileType, label: 'Full Dark', hubVarName: 'AstronomicalDusk' },
   '__weatherreport__':    { tileType: 'hub-variable' as TileType, label: 'Weather Report', hubVarName: 'WeatherReport', wide: true },
+  '__officefreezer__':    { tileType: 'hub-variable' as TileType, label: 'Office Freezer',   hubVarName: 'OfficeFreezerTemp' },
+  '__concretefreezer__':  { tileType: 'hub-variable' as TileType, label: 'Concrete Freezer', hubVarName: 'ConcreteFreezerTemp' },
 }
 
 /** Reverse-lookup: given a special tile config, return its synthetic ID (e.g. '__sunrise__'). */

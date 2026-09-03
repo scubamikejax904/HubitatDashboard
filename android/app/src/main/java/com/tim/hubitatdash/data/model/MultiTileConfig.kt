@@ -8,6 +8,7 @@ package com.tim.hubitatdash.data.model
  */
 data class MultiTileConfig(
     val deviceIds: List<String> = emptyList(),
+    val hubVarNames: List<String> = emptyList(),
     val cols: Int = 2,
     val label: String? = null,
     /** Per-device display title overrides within the panel, keyed by deviceId. */

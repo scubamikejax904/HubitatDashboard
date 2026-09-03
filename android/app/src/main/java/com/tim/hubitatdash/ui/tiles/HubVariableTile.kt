@@ -25,7 +25,13 @@ import com.tim.hubitatdash.ui.theme.TileTokens
 import com.tim.hubitatdash.ui.tiles.common.TilePill
 import com.tim.hubitatdash.ui.tiles.common.TileShell
 
-private val readOnlySunVars = setOf("Sunrise", "Sunset", "CivilDusk", "AstronomicalDusk")
+private val readOnlySunVars = setOf(
+    "Sunrise", "Sunset", "CivilDusk", "AstronomicalDusk",
+    "OfficeFreezerTemp", "ConcreteFreezerTemp"
+)
+
+/** Hub variables that are temperatures in °F — append a °F suffix. */
+private val tempHubVars = setOf("OfficeFreezerTemp", "ConcreteFreezerTemp")
 
 @Composable
 fun HubVariableTile(
@@ -36,9 +42,11 @@ fun HubVariableTile(
 ) {
     val varName = tile.hubVarName ?: tile.label
     val isReadOnly = varName in readOnlySunVars
-    val currentValue = hubVariables.firstOrNull { it.name == varName }?.value ?: "—"
+    val rawValue = hubVariables.firstOrNull { it.name == varName }?.value
+    val currentValue = if (rawValue.isNullOrBlank()) "—"
+        else "${rawValue}${if (varName in tempHubVars) "°F" else ""}"
     var showEdit by remember { mutableStateOf(false) }
-    var editValue by remember(currentValue) { mutableStateOf(currentValue) }
+    var editValue by remember(rawValue) { mutableStateOf(rawValue ?: "") }
 
     TileShell(title = tile.displayTitle, modifier = modifier) {
         Row(

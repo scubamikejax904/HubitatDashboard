@@ -328,6 +328,8 @@ class GroupRepository @Inject constructor(
             "__sunset__"   -> TileConfig(deviceId = null, label = "Sunset",           tileType = TileType.HUB_VARIABLE, hubVarName = "Sunset")
             "__civildusk__" -> TileConfig(deviceId = null, label = "Civil Dusk",      tileType = TileType.HUB_VARIABLE, hubVarName = "CivilDusk")
             "__astronomicaldusk__" -> TileConfig(deviceId = null, label = "Full Dark", tileType = TileType.HUB_VARIABLE, hubVarName = "AstronomicalDusk")
+            "__officefreezer__"   -> TileConfig(deviceId = null, label = "Office Freezer",   tileType = TileType.HUB_VARIABLE, hubVarName = "OfficeFreezerTemp")
+            "__concretefreezer__" -> TileConfig(deviceId = null, label = "Concrete Freezer", tileType = TileType.HUB_VARIABLE, hubVarName = "ConcreteFreezerTemp")
             else -> {
                 if (deviceId.startsWith("__multi-")) {
                     val cfg = _multiTileConfigs.value[deviceId]

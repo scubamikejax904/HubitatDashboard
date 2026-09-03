@@ -188,6 +188,20 @@ class DeviceRepository @Inject constructor(
     private suspend fun collectSseEvents() {
         sseClient.events.collect { event ->
             _connectionStatus.value = ConnectionStatus.CONNECTED
+
+            // Hub variable change (name was "variable:<var>") — update in place.
+            if (event.deviceId == "hubvar") {
+                val updated = _hubVariables.value.map {
+                    if (it.name == event.attribute) it.copy(value = event.value) else it
+                }
+                // If the variable wasn't in the startup snapshot, append it so the
+                // tile can still show a live value.
+                val exists = updated.any { it.name == event.attribute }
+                _hubVariables.value = if (exists) updated
+                    else _hubVariables.value + HubVariable(name = event.attribute, type = "", value = event.value)
+                return@collect
+            }
+
             val current = _devices.value.toMutableMap()
             val device = current[event.deviceId]
             if (device != null) {

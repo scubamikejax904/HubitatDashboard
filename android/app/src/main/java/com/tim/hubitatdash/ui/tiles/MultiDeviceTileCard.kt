@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.util.Log
 import com.tim.hubitatdash.data.model.DeviceState
+import com.tim.hubitatdash.data.model.HubVariable
 import com.tim.hubitatdash.data.model.MultiTileConfig
 import com.tim.hubitatdash.data.model.TileConfig
 import com.tim.hubitatdash.ui.theme.TileTokens
@@ -39,20 +40,35 @@ private fun tempColor(temp: Float?): Color = when {
     else         -> TileTokens.OrangeHot
 }
 
+/** Hub variables that are temperatures in °F — append a °F suffix. */
+private val tempHubVars = setOf("OfficeFreezerTemp", "ConcreteFreezerTemp")
+
+/** A cell in the panel grid: either a real deviceId or a hub-variable name. */
+private sealed interface PanelCell {
+    data class Device(val deviceId: String) : PanelCell
+    data class HubVar(val hubVarName: String) : PanelCell
+}
+
 @Composable
 fun MultiDeviceTileCard(
     tile: TileConfig,
     config: MultiTileConfig?,
     devices: Map<String, DeviceState>,
+    hubVariables: List<HubVariable>,
     onCommand: (deviceId: String, command: String, value: String?) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    if (config == null || config.deviceIds.isEmpty()) return
+    if (config == null || (config.deviceIds.isEmpty() && config.hubVarNames.isEmpty())) return
 
-    Log.d("MultiTileCard", "tile=${tile.deviceId} labels=${config.labels} deviceIds=${config.deviceIds}")
+    Log.d("MultiTileCard", "tile=${tile.deviceId} labels=${config.labels} deviceIds=${config.deviceIds} hubVars=${config.hubVarNames}")
     val cols = config.cols.coerceIn(1, 4)
     val label = config.label?.ifBlank { null } ?: "Panel"
     val deviceIds = config.deviceIds.filter { devices.containsKey(it) }
+
+    // Order: devices first, then hub variables.
+    val cells: List<PanelCell> =
+        deviceIds.map { PanelCell.Device(it) } +
+        config.hubVarNames.map { PanelCell.HubVar(it) }
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -71,30 +87,80 @@ fun MultiDeviceTileCard(
                 modifier = Modifier.padding(bottom = 6.dp)
             )
 
-            val rows = deviceIds.chunked(cols)
+            val rows = cells.chunked(cols)
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                rows.forEach { rowDevices ->
+                rows.forEach { rowCells ->
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        rowDevices.forEach { deviceId ->
-                            val cellLabel = config.labels?.get(deviceId)?.takeIf { it.isNotBlank() }
-                                ?: devices[deviceId]!!.label
-                            MiniDeviceCell(
-                                deviceId = deviceId,
-                                device = devices[deviceId]!!,
-                                displayLabel = cellLabel,
-                                onCommand = onCommand,
-                                modifier = Modifier.weight(1f)
-                            )
+                        rowCells.forEach { cell ->
+                            when (cell) {
+                                is PanelCell.Device -> {
+                                    val deviceId = cell.deviceId
+                                    val cellLabel = config.labels?.get(deviceId)?.takeIf { it.isNotBlank() }
+                                        ?: devices[deviceId]!!.label
+                                    MiniDeviceCell(
+                                        deviceId = deviceId,
+                                        device = devices[deviceId]!!,
+                                        displayLabel = cellLabel,
+                                        onCommand = onCommand,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                                is PanelCell.HubVar -> {
+                                    MiniHubVarCell(
+                                        hubVarName = cell.hubVarName,
+                                        value = hubVariables.firstOrNull { it.name == cell.hubVarName }?.value,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
                         }
-                        repeat(cols - rowDevices.size) {
+                        repeat(cols - rowCells.size) {
                             Spacer(modifier = Modifier.weight(1f))
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+/** Read-only hub-variable cell: shows the variable name + its live value. */
+@Composable
+private fun MiniHubVarCell(
+    hubVarName: String,
+    value: String?,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        tonalElevation = 1.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(6.dp)
+                .fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = hubVarName,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = Color.White
+            )
+            Text(
+                text = value?.takeIf { it.isNotBlank() }?.let { "${it}${if (hubVarName in tempHubVars) "°F" else ""}" } ?: "—",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White
+            )
         }
     }
 }

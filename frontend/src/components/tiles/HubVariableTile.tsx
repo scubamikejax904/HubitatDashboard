@@ -5,7 +5,7 @@ import { showToast } from '../../utils/toast'
 
 interface Props { hubVarName: string; label: string }
 
-const READ_ONLY_VARS = new Set(['Sunrise', 'Sunset', 'CivilDusk', 'AstronomicalDusk', 'WeatherReport'])
+const READ_ONLY_VARS = new Set(['Sunrise', 'Sunset', 'CivilDusk', 'AstronomicalDusk', 'WeatherReport', 'OfficeFreezerTemp', 'ConcreteFreezerTemp'])
 
 export function HubVariableTile({ hubVarName, label }: Props) {
   const value = useHubVariable(hubVarName)

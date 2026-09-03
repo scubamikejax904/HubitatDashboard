@@ -124,6 +124,22 @@ fun DevicePickerSheet(
                             }
                         }
                     }
+                    if ("__officefreezer__" !in currentDeviceIds) {
+                        item {
+                            SpecialTileRow("Office Freezer", TileType.HUB_VARIABLE) {
+                                onAdd("__officefreezer__", "Office Freezer", TileType.HUB_VARIABLE)
+                                onDismiss()
+                            }
+                        }
+                    }
+                    if ("__concretefreezer__" !in currentDeviceIds) {
+                        item {
+                            SpecialTileRow("Concrete Freezer", TileType.HUB_VARIABLE) {
+                                onAdd("__concretefreezer__", "Concrete Freezer", TileType.HUB_VARIABLE)
+                                onDismiss()
+                            }
+                        }
+                    }
                     item { Spacer(Modifier.height(8.dp)) }
                     item {
                         Text(

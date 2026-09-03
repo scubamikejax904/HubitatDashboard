@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Search, X, Clock, ShieldCheck, Sun, Sunrise } from 'lucide-react'
+import { Search, X, Clock, ShieldCheck, Sun, Sunrise, Snowflake } from 'lucide-react'
 import { useDeviceStore } from '../store/deviceStore'
 import { useGroupStore } from '../store/groupStore'
 import { autoTileType } from '../utils/autoTileType'
@@ -24,6 +24,8 @@ export const SPECIAL_TILES = [
   { id: '__civildusk__', label: 'Civil Dusk',         Icon: Sun,         tileType: 'hub-variable' },
   { id: '__astronomicaldusk__', label: 'Full Dark',       Icon: Sun,         tileType: 'hub-variable' },
   { id: '__weatherreport__',    label: 'Weather Report',  Icon: Sun,         tileType: 'hub-variable' },
+  { id: '__officefreezer__',      label: 'Office Freezer',  Icon: Snowflake,  tileType: 'hub-variable' },
+  { id: '__concretefreezer__',    label: 'Concrete Freezer',Icon: Snowflake,  tileType: 'hub-variable' },
 ] as const
 
 export function AddDeviceModal({ groupId, currentDeviceIds, onClose, onAddMultiTile }: Props) {

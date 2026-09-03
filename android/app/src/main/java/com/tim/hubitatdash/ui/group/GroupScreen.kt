@@ -182,6 +182,8 @@ fun GroupScreen(
                 tile.tileType == TileType.HUB_VARIABLE && tile.hubVarName == "Sunset"  -> "__sunset__"
                 tile.tileType == TileType.HUB_VARIABLE && tile.hubVarName == "CivilDusk" -> "__civildusk__"
                 tile.tileType == TileType.HUB_VARIABLE && tile.hubVarName == "AstronomicalDusk" -> "__astronomicaldusk__"
+                tile.tileType == TileType.HUB_VARIABLE && tile.hubVarName == "OfficeFreezerTemp" -> "__officefreezer__"
+                tile.tileType == TileType.HUB_VARIABLE && tile.hubVarName == "ConcreteFreezerTemp" -> "__concretefreezer__"
                 !tile.deviceId.isNullOrBlank() -> tile.deviceId
                 else -> null
             }
@@ -316,6 +318,7 @@ fun GroupScreen(
                                         tile = tile,
                                         config = tile.deviceId?.let { multiTileConfigs[it] },
                                         devices = devices,
+                                        hubVariables = hubVariables,
                                         onCommand = { deviceId, command, value ->
                                             viewModel.sendCommand(deviceId, command, value)
                                         }
@@ -344,6 +347,8 @@ fun GroupScreen(
                                         tile.tileType == TileType.HUB_VARIABLE && tile.hubVarName == "Sunset"  -> "__sunset__"
                                         tile.tileType == TileType.HUB_VARIABLE && tile.hubVarName == "CivilDusk" -> "__civildusk__"
                                         tile.tileType == TileType.HUB_VARIABLE && tile.hubVarName == "AstronomicalDusk" -> "__astronomicaldusk__"
+                                        tile.tileType == TileType.HUB_VARIABLE && tile.hubVarName == "OfficeFreezerTemp" -> "__officefreezer__"
+                                        tile.tileType == TileType.HUB_VARIABLE && tile.hubVarName == "ConcreteFreezerTemp" -> "__concretefreezer__"
                                         else -> null
                                     }
                                     if (removableId != null) {

@@ -69,6 +69,10 @@ interface GroupStore {
   addDeviceToMultiTile: (tileId: string, deviceId: string) => void
   /** Removes a device from a multi-tile's device list. */
   removeDeviceFromMultiTile: (tileId: string, deviceId: string) => void
+  /** Adds a hub variable cell to a multi-tile's hubVarNames list. */
+  addHubVarToMultiTile: (tileId: string, hubVarName: string) => void
+  /** Removes a hub variable cell from a multi-tile's hubVarNames list. */
+  removeHubVarFromMultiTile: (tileId: string, hubVarName: string) => void
   /** Removes a multi-tile config and its groupAdditions entry. */
   removeMultiTile: (groupId: string, tileId: string) => void
   /** Replaces all dynamic config with imported data. Static group IDs are preserved in groupOrder. */
@@ -372,6 +376,32 @@ export const useGroupStore = create<GroupStore>()(
             multiTileConfigs: {
               ...s.multiTileConfigs,
               [tileId]: { ...cfg, deviceIds: cfg.deviceIds.filter((id) => id !== deviceId) },
+            },
+          }
+        }),
+
+      addHubVarToMultiTile: (tileId, hubVarName) =>
+        set((s) => {
+          const cfg = s.multiTileConfigs[tileId]
+          if (!cfg) return {}
+          const current = cfg.hubVarNames ?? []
+          if (current.includes(hubVarName)) return {}
+          return {
+            multiTileConfigs: {
+              ...s.multiTileConfigs,
+              [tileId]: { ...cfg, hubVarNames: [...current, hubVarName] },
+            },
+          }
+        }),
+
+      removeHubVarFromMultiTile: (tileId, hubVarName) =>
+        set((s) => {
+          const cfg = s.multiTileConfigs[tileId]
+          if (!cfg) return {}
+          return {
+            multiTileConfigs: {
+              ...s.multiTileConfigs,
+              [tileId]: { ...cfg, hubVarNames: (cfg.hubVarNames ?? []).filter((n) => n !== hubVarName) },
             },
           }
         }),

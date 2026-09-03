@@ -74,6 +74,7 @@ export function GpsMapPage() {
   })
   const [mapLayer, setMapLayer] = useState<LayerKey>('hybrid')
   const [refreshInterval, setRefreshInterval] = useState(0) // 0 = off, else seconds
+  const [mapDevice, setMapDevice] = useState('') // '' = all phones tracked
 
   // AI trip summary state
   const [providers, setProviders] = useState<{ id: string; label: string }[]>([])
@@ -196,16 +197,25 @@ export function GpsMapPage() {
     [sortedPoints],
   )
 
+  // Points shown on the map — filtered to one phone when mapDevice is set
+  const filteredPoints = useMemo(
+    () =>
+      mapDevice
+        ? sortedPoints.filter((p) => (p.device ?? '') === mapDevice)
+        : sortedPoints,
+    [sortedPoints, mapDevice],
+  )
+
   // Polyline path
   const path = useMemo(
-    () => sortedPoints.map((p) => ({ lat: p.lat, lng: p.long })) as { lat: number; lng: number }[],
-    [sortedPoints],
+    () => filteredPoints.map((p) => ({ lat: p.lat, lng: p.long })) as { lat: number; lng: number }[],
+    [filteredPoints],
   );
 
   // Latest timestamp per device (the "current" position for each phone)
   const latestPerDevice = useMemo(() => {
     const map = new Map<string, string>();
-    for (const p of sortedPoints) {
+    for (const p of filteredPoints) {
       const d = p.device ?? '';
       const existing = map.get(d);
       if (!existing || p.timestamp > existing) {
@@ -213,12 +223,12 @@ export function GpsMapPage() {
       }
     }
     return map;
-  }, [sortedPoints]);
+  }, [filteredPoints]);
 
   // Fixed colour pairs per device (alphabetical order → stable assignment)
   const deviceColorMap = useMemo(() => {
     const devices = [
-      ...new Set(sortedPoints.map((p) => p.device ?? '')),
+      ...new Set(filteredPoints.map((p) => p.device ?? '')),
     ].sort();
 
     const colorPairs: Array<{ trail: string; current: string }> = [
@@ -231,14 +241,14 @@ export function GpsMapPage() {
       map.set(devices[i], colorPairs[i % colorPairs.length]);
     }
     return map;
-  }, [sortedPoints]);
+  }, [filteredPoints]);
 
   // Center map
   const center = useMemo((): [number, number] => {
-    if (sortedPoints.length === 0) return [39.8283, -98.5795] // US center
-    const mid = sortedPoints[Math.floor(sortedPoints.length / 2)]
+    if (filteredPoints.length === 0) return [39.8283, -98.5795] // US center
+    const mid = filteredPoints[Math.floor(filteredPoints.length / 2)]
     return [mid.lat, mid.long]
-  }, [sortedPoints])
+  }, [filteredPoints])
 
   // Not configured
   if (!configured) {
@@ -279,6 +289,19 @@ export function GpsMapPage() {
               <option key={key} value={key}>{LAYER_OPTIONS[key].label}</option>
             ))}
           </select>
+          {uniqueDevices.length > 0 && (
+            <select
+              value={mapDevice}
+              onChange={(e) => setMapDevice(e.target.value)}
+              title="Which tracked phone to show on the map (All shows every phone)"
+              className="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+            >
+              <option value="">All phones</option>
+              {uniqueDevices.map((d) => (
+                <option key={d} value={d}>{d || 'Unknown'}</option>
+              ))}
+            </select>
+          )}
           <select
             value={refreshInterval}
             onChange={(e) => setRefreshInterval(Number(e.target.value))}
@@ -288,6 +311,9 @@ export function GpsMapPage() {
             {[1,2,3,4,5,6,7,8,9,10].map((n) => (
               <option key={n} value={n}>{n}s</option>
             ))}
+            <option value={60}>1m</option>
+            <option value={300}>5m</option>
+            <option value={600}>10m</option>
           </select>
           <input
             type="date"
@@ -388,12 +414,13 @@ export function GpsMapPage() {
       {/* Status bar */}
       {!loading && (
         <div className="px-4 py-1.5 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-850 border-b border-gray-200 dark:border-gray-700">
-          {sortedPoints.length} data point{sortedPoints.length !== 1 ? 's' : ''}
-          {sortedPoints.length > 0 && (
+          {filteredPoints.length} data point{filteredPoints.length !== 1 ? 's' : ''}
+          {mapDevice ? ` (${mapDevice})` : ''}
+          {filteredPoints.length > 0 && (
             <>
               {' '}
-              from {new Date(sortedPoints[0].timestamp).toLocaleString()} to{' '}
-              {new Date(sortedPoints[sortedPoints.length - 1].timestamp).toLocaleString()}
+              from {new Date(filteredPoints[0].timestamp).toLocaleString()} to{' '}
+              {new Date(filteredPoints[filteredPoints.length - 1].timestamp).toLocaleString()}
             </>
           )}
         </div>
@@ -465,7 +492,7 @@ export function GpsMapPage() {
             maxZoom={LAYER_OPTIONS[mapLayer].maxZoom}
           />
           <FitBounds points={path} />
-          {sortedPoints.map((point, idx) => {
+          {filteredPoints.map((point, idx) => {
             const dev = point.device ?? ''
             const colors = deviceColorMap.get(dev) ?? { trail: '#3B82F6', current: '#EF4444' }
             const isLatest = latestPerDevice.get(dev) === point.timestamp

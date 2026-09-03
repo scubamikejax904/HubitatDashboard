@@ -32,6 +32,8 @@ export interface TileConfig {
 
 export interface MultiTileConfig {
   deviceIds: string[];
+  /** Hub variables displayed as cells in the panel, in addition to deviceIds. */
+  hubVarNames?: string[];
   cols: number;
   label?: string;
   /** Per-device display title overrides within the panel, keyed by deviceId. */
