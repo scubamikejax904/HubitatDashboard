@@ -42,6 +42,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
@@ -122,6 +124,7 @@ fun GpsMapScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .zIndex(1f)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -185,7 +188,13 @@ fun GpsMapScreen(
                 }
             }
 
-            Box(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .clipToBounds()
+                    .zIndex(0f)
+            ) {
                 GpsOsmMap(
                     data = uiState.data,
                     layer = uiState.mapLayer,
@@ -282,6 +291,7 @@ private fun GpsOsmMap(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val updateKeyState = remember { mutableStateOf<String?>(null) }
     val mapView = remember {
         Configuration.getInstance().userAgentValue = userAgent
         MapView(context).apply {
@@ -294,7 +304,10 @@ private fun GpsOsmMap(
     AndroidView(
         modifier = modifier,
         factory = { mapView },
-        update = { map ->
+        update = updateLoop@{ map ->
+            val updateKey = "${layer.name}|${data.hashCode()}"
+            if (updateKeyState.value == updateKey) return@updateLoop
+            updateKeyState.value = updateKey
             map.setTileSource(
                 when (layer) {
                     GpsMapLayer.STREET -> TileSourceFactory.MAPNIK
@@ -337,7 +350,7 @@ private fun GpsOsmMap(
 
             if (geoPoints.size > 1) {
                 val bounds = BoundingBox.fromGeoPointsSafe(geoPoints)
-                map.zoomToBoundingBox(bounds, true, 80)
+                map.zoomToBoundingBox(bounds, false, 80)
             } else if (geoPoints.size == 1) {
                 map.controller.setCenter(geoPoints.first())
                 map.controller.setZoom(14.0)
