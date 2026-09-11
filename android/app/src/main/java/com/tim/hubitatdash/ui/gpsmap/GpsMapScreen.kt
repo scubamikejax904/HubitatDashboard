@@ -4,6 +4,8 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.drawable.BitmapDrawable
+import android.view.GestureDetector
+import android.view.MotionEvent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,9 +18,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
@@ -38,6 +43,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -56,6 +62,9 @@ import com.tim.hubitatdash.viewmodel.GpsMapLayer
 import com.tim.hubitatdash.viewmodel.GpsMapViewModel
 import kotlinx.coroutines.delay
 import org.osmdroid.config.Configuration
+import org.osmdroid.events.MapListener
+import org.osmdroid.events.ScrollEvent
+import org.osmdroid.events.ZoomEvent
 import org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.BoundingBox
@@ -75,6 +84,7 @@ fun GpsMapScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    var isMapFullscreen by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(uiState.refreshIntervalSeconds, uiState.startDate, uiState.endDate) {
         if (uiState.refreshIntervalSeconds <= 0) return@LaunchedEffect
@@ -86,6 +96,7 @@ fun GpsMapScreen(
 
     Scaffold(
         topBar = {
+            if (!isMapFullscreen) {
             TopAppBar(
                 title = { Text("GPS Map") },
                 navigationIcon = {
@@ -94,6 +105,7 @@ fun GpsMapScreen(
                     }
                 }
             )
+            }
         }
     ) { paddingValues ->
         if (!uiState.configured) {
@@ -120,6 +132,7 @@ fun GpsMapScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
+            if (!isMapFullscreen) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -187,6 +200,7 @@ fun GpsMapScreen(
                     }
                 }
             }
+            }
 
             Box(
                 modifier = Modifier
@@ -198,6 +212,8 @@ fun GpsMapScreen(
                 GpsOsmMap(
                     data = uiState.data,
                     layer = uiState.mapLayer,
+                    isFullscreen = isMapFullscreen,
+                    onExitFullscreen = { isMapFullscreen = false },
                     modifier = Modifier.fillMaxSize(),
                     userAgent = context.packageName
                 )
@@ -210,6 +226,20 @@ fun GpsMapScreen(
                     ) {
                         CircularProgressIndicator()
                     }
+                }
+
+                IconButton(
+                    onClick = { isMapFullscreen = !isMapFullscreen },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(12.dp)
+                        .zIndex(2f)
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = if (isMapFullscreen) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen,
+                        contentDescription = if (isMapFullscreen) "Exit fullscreen" else "Fullscreen"
+                    )
                 }
             }
         }
@@ -288,16 +318,37 @@ private fun GpsOsmMap(
     data: List<GpsDataPoint>,
     layer: GpsMapLayer,
     userAgent: String,
+    isFullscreen: Boolean,
+    onExitFullscreen: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val updateKeyState = remember { mutableStateOf<String?>(null) }
+    val fullscreenState = rememberUpdatedState(isFullscreen)
+    val exitFullscreenState = rememberUpdatedState(onExitFullscreen)
     val mapView = remember {
         Configuration.getInstance().userAgentValue = userAgent
         MapView(context).apply {
             setMultiTouchControls(true)
             controller.setZoom(4.0)
             controller.setCenter(GeoPoint(39.8283, -98.5795))
+            addMapListener(object : MapListener {
+                override fun onScroll(event: ScrollEvent?): Boolean = false
+                override fun onZoom(event: ZoomEvent?): Boolean = false
+            })
+            val tapDetector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
+                override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                    if (fullscreenState.value) {
+                        exitFullscreenState.value.invoke()
+                        return true
+                    }
+                    return false
+                }
+            })
+            setOnTouchListener { _, event ->
+                tapDetector.onTouchEvent(event)
+                false
+            }
         }
     }
 
