@@ -160,22 +160,46 @@ class DeviceRepository @Inject constructor(
             .asJsonArray
             .mapNotNull { it.asJsonObject.get("id")?.asString }
 
-        // Step 2: fetch full state for each device in parallel (max 8 concurrent)
+        // Step 2: fetch full state for each device in parallel (max 8 concurrent),
+        // retrying transient failures. The cloud Maker API is unreliable on the
+        // /devices/* wildcard family, so a single non-200 must not silently drop a
+        // device (that is what produced blank tiles on cloud refresh).
         val semaphore = Semaphore(8)
-        coroutineScope {
+        val fetched = coroutineScope {
             summaries.map { id ->
                 async {
                     semaphore.withPermit {
-                        val url = "$baseUrl/devices/$id?access_token=$token"
-                        okHttpClient.newCall(Request.Builder().url(url).get().build())
-                            .execute().use { r ->
-                                if (!r.isSuccessful) return@async null
-                                val body = r.body?.string() ?: return@async null
-                                gson.fromJson(body, DeviceState::class.java)
-                            }
+                        fetchCloudDeviceWithRetry(baseUrl, token, id)
                     }
                 }
-            }.awaitAll().filterNotNull()
+            }.awaitAll()
+        }
+        val failed = fetched.filter { it == null }.size
+        if (failed > 0) {
+            _lastError.value = "cloud refresh: $failed device(s) failed to fetch"
+        }
+        fetched.filterNotNull()
+    }
+
+    /** Fetch one device's full state over cloud, retrying transient failures (max 3 attempts). */
+    private suspend fun fetchCloudDeviceWithRetry(baseUrl: String, token: String, id: String): DeviceState? {
+        var attempt = 0
+        while (true) {
+            attempt++
+            try {
+                val url = "$baseUrl/devices/$id?access_token=$token"
+                val r = okHttpClient.newCall(Request.Builder().url(url).get().build()).execute()
+                r.use {
+                    if (it.isSuccessful) {
+                        val body = it.body?.string() ?: return null
+                        return gson.fromJson(body, DeviceState::class.java)
+                    }
+                    if (attempt >= 3) return null
+                }
+            } catch (_: Exception) {
+                if (attempt >= 3) return null
+            }
+            kotlinx.coroutines.delay(500L * attempt)
         }
     }
 
