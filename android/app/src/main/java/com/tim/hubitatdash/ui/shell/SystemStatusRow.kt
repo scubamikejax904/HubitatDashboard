@@ -182,19 +182,22 @@ fun SystemStatusRow(
 
             // Mode chip
             item {
+                val modeMissing = modes.isEmpty()
+                val modeProblem = modeMissing && connectionError != null
+                val modeColor = if (modeProblem) ColorReconnecting else Color(0xFF1565C0)
                 AssistChip(
                     onClick = {},
                     label = {
                         Text(
-                            activeMode?.name ?: "—",
+                            activeMode?.name ?: if (modeProblem) "mode: err" else "—",
                             style = MaterialTheme.typography.labelSmall
                         )
                     },
                     leadingIcon = {
-                        Icon(Icons.Default.Schedule, contentDescription = "Mode", tint = Color(0xFF1565C0))
+                        Icon(Icons.Default.Schedule, contentDescription = "Mode", tint = modeColor)
                     },
                     colors = AssistChipDefaults.assistChipColors(
-                        containerColor = Color(0xFF1565C0).copy(alpha = 0.12f)
+                        containerColor = modeColor.copy(alpha = 0.12f)
                     )
                 )
             }

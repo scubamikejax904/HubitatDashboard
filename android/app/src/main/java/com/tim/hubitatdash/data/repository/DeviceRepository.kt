@@ -105,20 +105,32 @@ class DeviceRepository @Inject constructor(
             val deviceList = if (isCloud) fetchCloudDevices(baseUrl.trimEnd('/'), token)
                              else svc.getAllDevices(token)
             _devices.value = deviceList.associateBy { it.id }
+            // Extras run on BOTH transports: the Hubitat cloud Maker API serves
+            // /modes, /hsm and /hubvariables as well. Gating them behind !isCloud
+            // left the Mode chip, the HSM chip and the hub-variable tiles blank
+            // forever on a cloud connection, while devices still loaded fine.
+            val extrasErrors = mutableListOf<String>()
+            try {
+                step = "getHsmStatus"
+                _hsmStatus.value = HsmMode.fromApiValue(svc.getHsmStatus(token).hsm)
+            } catch (e: Exception) {
+                extrasErrors.add("hsm=" + e.javaClass.simpleName)
+            }
+            try {
+                step = "getModes"
+                _modes.value = svc.getModes(token)
+            } catch (e: Exception) {
+                extrasErrors.add("modes=" + e.javaClass.simpleName)
+            }
+            try {
+                step = "getHubVariables"
+                _hubVariables.value = svc.getHubVariables(token)
+            } catch (e: Exception) {
+                extrasErrors.add("hubvars=" + e.javaClass.simpleName)
+            }
+            _lastError.value = if (extrasErrors.isEmpty()) null
+                else "extras failed (" + (if (isCloud) "cloud" else "local") + "): " + extrasErrors.joinToString(", ")
             if (!isCloud) {
-                // Non-critical extras — only attempt on local (cloud may not support them)
-                try {
-                    step = "getHsmStatus"
-                    _hsmStatus.value = HsmMode.fromApiValue(svc.getHsmStatus(token).hsm)
-                } catch (_: Exception) {}
-                try {
-                    step = "getModes"
-                    _modes.value = svc.getModes(token)
-                } catch (_: Exception) {}
-                try {
-                    step = "getHubVariables"
-                    _hubVariables.value = svc.getHubVariables(token)
-                } catch (_: Exception) {}
                 sseClient.connect()
             }
             _connectionStatus.value = ConnectionStatus.CONNECTED
