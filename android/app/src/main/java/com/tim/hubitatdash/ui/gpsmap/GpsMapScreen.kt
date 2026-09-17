@@ -22,10 +22,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -37,7 +40,9 @@ import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -142,18 +147,16 @@ fun GpsMapScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
+                    DateField(
                         value = uiState.startDate,
-                        onValueChange = viewModel::setStartDate,
-                        label = { Text("Start (YYYY-MM-DD)") },
-                        singleLine = true,
+                        onDateChange = viewModel::setStartDate,
+                        label = "Start",
                         modifier = Modifier.weight(1f)
                     )
-                    OutlinedTextField(
+                    DateField(
                         value = uiState.endDate,
-                        onValueChange = viewModel::setEndDate,
-                        label = { Text("End (YYYY-MM-DD)") },
-                        singleLine = true,
+                        onDateChange = viewModel::setEndDate,
+                        label = "End",
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -242,6 +245,58 @@ fun GpsMapScreen(
                     )
                 }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DateField(
+    value: String,
+    onDateChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    var showPicker by rememberSaveable { mutableStateOf(false) }
+    val displayText = remember(value) {
+        if (value.isBlank()) "" else value
+    }
+    OutlinedTextField(
+        value = displayText,
+        onValueChange = {},
+        readOnly = true,
+        label = { Text(label) },
+        trailingIcon = {
+            IconButton(onClick = { showPicker = true }) {
+                Icon(Icons.Default.DateRange, contentDescription = "Pick $label date")
+            }
+        },
+        modifier = modifier
+    )
+    if (showPicker) {
+        val initial = runCatching { java.time.LocalDate.parse(value) }.getOrNull()
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = initial?.atStartOfDay(java.time.ZoneId.systemDefault())
+                ?.toInstant()?.toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showPicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    pickerState.selectedDateMillis?.let { millis ->
+                        val date = java.time.Instant.ofEpochMilli(millis)
+                            .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                        onDateChange(date.toString())
+                    }
+                    showPicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPicker = false }) { Text("Cancel") }
+            }
+        ) {
+            DatePicker(state = pickerState)
         }
     }
 }
