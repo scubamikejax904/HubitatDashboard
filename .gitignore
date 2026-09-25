@@ -14,3 +14,4 @@ backend/config.json
 *.lock
 .DS_Store
 .dashboard-pids.json
+docs/.venv/
