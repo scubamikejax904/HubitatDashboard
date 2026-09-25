@@ -23,3 +23,13 @@ export const CUSTOM_ICON_NAMES = [
   'Music', 'Car', 'Wrench', 'Package', 'Tag', 'Globe',
   'Heart', 'Cpu', 'Bookmark', 'Layers',
 ] as const
+
+/**
+ * Returns the first icon in CUSTOM_ICON_NAMES not already used by another group,
+ * so newly created groups get a unique icon by default. Falls back to the first
+ * icon when the palette is exhausted (duplicates unavoidable).
+ */
+export function nextAvailableIcon(used: string[]): string {
+  const usedSet = new Set(used)
+  return CUSTOM_ICON_NAMES.find((n) => !usedSet.has(n)) ?? CUSTOM_ICON_NAMES[0]
+}

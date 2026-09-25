@@ -48,6 +48,8 @@ interface GroupStore {
 
   addCustomGroup: (group: CustomGroup, parentId?: string) => void
   removeCustomGroup: (id: string) => void
+  /** Changes the icon of an existing custom group. */
+  setGroupIcon: (groupId: string, iconName: string) => void
   addDeviceToGroup: (groupId: string, deviceId: string) => void
   /** Returns false if deviceId would have no remaining group; removal is blocked. */
   removeDeviceFromGroup: (groupId: string, deviceId: string) => boolean
@@ -200,6 +202,13 @@ export const useGroupStore = create<GroupStore>()(
             groupOrder: [...s.groupOrder, group.id],
           }
         }),
+
+      setGroupIcon: (groupId, iconName) =>
+        set((s) => ({
+          customGroups: s.customGroups.map((g) =>
+            g.id === groupId ? { ...g, iconName } : g,
+          ),
+        })),
 
       removeCustomGroup: (id) =>
         set((s) => {

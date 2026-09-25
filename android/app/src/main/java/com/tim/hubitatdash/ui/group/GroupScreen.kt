@@ -3,6 +3,7 @@ package com.tim.hubitatdash.ui.group
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,12 +14,17 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
@@ -26,6 +32,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -61,6 +69,7 @@ import com.tim.hubitatdash.data.model.DeviceState
 import com.tim.hubitatdash.ui.edit.DevicePickerSheet
 import com.tim.hubitatdash.ui.edit.TileTypePickerSheet
 import com.tim.hubitatdash.ui.edit.availableTileTypes
+import com.tim.hubitatdash.ui.edit.GROUP_ICON_NAMES
 import com.tim.hubitatdash.ui.edit.iconForName
 import com.tim.hubitatdash.ui.theme.TileTokens
 import com.tim.hubitatdash.ui.tiles.MultiDeviceTileCard
@@ -157,6 +166,7 @@ fun GroupScreen(
     var typePickTarget by remember { mutableStateOf<Pair<String, DeviceState>?>(null) }
     /** Tile being title-edited: Pair(groupId, tile) */
     var titleEditTarget by remember { mutableStateOf<Pair<String, TileConfig>?>(null) }
+    var showIconPicker by remember { mutableStateOf(false) }
 
     // Derive stable key list from group tiles
     val tileKeys by remember(group.tiles) {
@@ -229,6 +239,18 @@ fun GroupScreen(
         )
     }
 
+    if (showIconPicker) {
+        IconPickerSheet(
+            currentIcon = group.iconName,
+            usedIcons = customGroups.filter { it.id != groupId }.map { it.iconName },
+            onDismiss = { showIconPicker = false },
+            onConfirm = { iconName ->
+                groupEditViewModel.setGroupIcon(groupId, iconName)
+                showIconPicker = false
+            }
+        )
+    }
+
     PullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = {
@@ -247,11 +269,27 @@ fun GroupScreen(
         } else {
             Box(modifier = Modifier.fillMaxSize()) {
                 Column {
-                    Text(
-                        text = group.displayName,
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = group.displayName,
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (isEditMode) {
+                            IconButton(onClick = { showIconPicker = true }) {
+                                Icon(
+                                    imageVector = iconForName(group.iconName),
+                                    contentDescription = "Change icon",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
                     // Use drag-state-ordered keys so reorder is reflected immediately
                     val orderedTiles = remember(dragState.keys, group.tiles) {
                         val tileMap = group.tiles.associateBy { tileKey(it) }
@@ -554,5 +592,71 @@ private fun TitleEditDialog(
             TextButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun IconPickerSheet(
+    currentIcon: String,
+    usedIcons: List<String>,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    var selectedIcon by remember { mutableStateOf(currentIcon) }
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 32.dp)
+        ) {
+            Text("Group Icon", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(12.dp))
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(6),
+                modifier = Modifier.fillMaxWidth().heightIn(max = 200.dp),
+                contentPadding = PaddingValues(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                items(GROUP_ICON_NAMES) { iconName ->
+                    val isSelected = iconName == selectedIcon
+                    val isTaken = iconName in usedIcons && !isSelected
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .then(
+                                if (isSelected) Modifier.border(
+                                    2.dp,
+                                    MaterialTheme.colorScheme.primary,
+                                    MaterialTheme.shapes.small
+                                ) else Modifier
+                            )
+                            .clickable(enabled = !isTaken) { selectedIcon = iconName },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = iconForName(iconName),
+                            contentDescription = iconName,
+                            tint = when {
+                                isSelected -> MaterialTheme.colorScheme.primary
+                                isTaken -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            }
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+                Spacer(Modifier.width(8.dp))
+                Button(onClick = { onConfirm(selectedIcon); onDismiss() }) { Text("Save") }
+            }
+        }
+    }
 }
 

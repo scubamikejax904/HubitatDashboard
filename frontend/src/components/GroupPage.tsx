@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Pencil, X, Plus, ChevronDown, ChevronUp, UserPlus, FolderPlus, ArrowLeft, ChevronRight, Sliders, GripVertical } from 'lucide-react'
+import { Pencil, X, Plus, ChevronDown, ChevronUp, UserPlus, FolderPlus, ArrowLeft, ChevronRight, Sliders, GripVertical, LayoutGrid } from 'lucide-react'
 import { groups as staticGroups } from '../config/groups'
 import { useDeviceStore } from '../store/deviceStore'
 import { useGroupStore } from '../store/groupStore'
@@ -9,6 +9,7 @@ import { autoTileType, availableTileTypes, TILE_TYPE_LABELS } from '../utils/aut
 import { showToast } from '../utils/toast'
 import { AddDeviceModal } from './AddDeviceModal'
 import { CreateGroupModal } from './CreateGroupModal'
+import { IconPickerModal } from './IconPickerModal'
 import { ICON_MAP } from '../utils/iconMap'
 import { EditModeContext } from '../context/EditModeContext'
 import { SwitchTile } from './tiles/SwitchTile'
@@ -445,6 +446,7 @@ function GroupHeader({
   onToggleEdit,
   onAddDevice,
   onAddSubGroup,
+  onEditIcon,
 }: {
   title: string
   subtitle?: string
@@ -452,6 +454,7 @@ function GroupHeader({
   onToggleEdit: () => void
   onAddDevice?: () => void
   onAddSubGroup?: () => void
+  onEditIcon?: () => void
 }) {
   return (
     <div className="flex items-start justify-between mb-4 gap-3">
@@ -474,6 +477,14 @@ function GroupHeader({
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg font-medium transition-colors bg-green-600 text-white hover:bg-green-700"
           >
             <UserPlus size={14} /> Add Device
+          </button>
+        )}
+        {editMode && onEditIcon && (
+          <button
+            onClick={onEditIcon}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg font-medium transition-colors bg-amber-600 text-white hover:bg-amber-700"
+          >
+            <LayoutGrid size={14} /> Icon
           </button>
         )}
         <button
@@ -758,6 +769,7 @@ function CustomGroupPage({ groupId }: Props) {
   const [editMode, setEditMode]               = useState(false)
   const [showAddDevice, setShowAddDevice]     = useState(false)
   const [showAddSubGroup, setShowAddSubGroup] = useState(false)
+  const [showIconPicker, setShowIconPicker]   = useState(false)
   const [dragIndex, setDragIndex]             = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex]     = useState<number | null>(null)
   const navigate = useNavigate()
@@ -769,6 +781,7 @@ function CustomGroupPage({ groupId }: Props) {
   const tileTypeOverrides = useGroupStore((s) => s.tileTypeOverrides)
   const addCustomGroup    = useGroupStore((s) => s.addCustomGroup)
   const removeCustomGroup = useGroupStore((s) => s.removeCustomGroup)
+  const setGroupIcon      = useGroupStore((s) => s.setGroupIcon)
   const moveSubGroupUp    = useGroupStore((s) => s.moveSubGroupUp)
   const moveSubGroupDown  = useGroupStore((s) => s.moveSubGroupDown)
   const tileOrder         = useGroupStore((s) => s.tileOrder)
@@ -792,6 +805,11 @@ function CustomGroupPage({ groupId }: Props) {
   const parentGroup = customGroup.parentId
     ? customGroups.find((g) => g.id === customGroup.parentId)
     : undefined
+
+  // Icons used by all OTHER groups — the current group's icon stays selectable.
+  const usedIcons = customGroups
+    .filter((g) => g.id !== groupId)
+    .map((g) => g.iconName)
 
   // Sub-groups of this group — derive from parentId (source of truth), use childGroupOrder for ordering
   const childGroups = customGroups
@@ -884,6 +902,7 @@ function CustomGroupPage({ groupId }: Props) {
         onToggleEdit={() => setEditMode((v) => !v)}
         onAddDevice={() => setShowAddDevice(true)}
         onAddSubGroup={() => setShowAddSubGroup(true)}
+        onEditIcon={() => setShowIconPicker(true)}
       />
 
       {/* Device tiles */}
@@ -1004,6 +1023,19 @@ function CustomGroupPage({ groupId }: Props) {
           title="New Sub-group"
           onClose={() => setShowAddSubGroup(false)}
           onConfirm={handleCreateSubGroup}
+          usedIcons={usedIcons}
+        />
+      )}
+      {showIconPicker && (
+        <IconPickerModal
+          currentIcon={customGroup.iconName}
+          usedIcons={usedIcons}
+          onClose={() => setShowIconPicker(false)}
+          onConfirm={(iconName) => {
+            setGroupIcon(groupId, iconName)
+            setShowIconPicker(false)
+            showToast(`Icon updated`)
+          }}
         />
       )}
     </div>

@@ -1,16 +1,18 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
-import { ICON_MAP, CUSTOM_ICON_NAMES } from '../utils/iconMap'
+import { ICON_MAP, CUSTOM_ICON_NAMES, nextAvailableIcon } from '../utils/iconMap'
 
 interface Props {
   onClose: () => void
   onConfirm: (name: string, iconName: string) => void
   title?: string
+  /** Icon names already used by other groups — these are disabled in the picker. */
+  usedIcons?: string[]
 }
 
-export function CreateGroupModal({ onClose, onConfirm, title = 'New Group' }: Props) {
+export function CreateGroupModal({ onClose, onConfirm, title = 'New Group', usedIcons = [] }: Props) {
   const [name, setName] = useState('')
-  const [selectedIcon, setSelectedIcon] = useState<string>('Home')
+  const [selectedIcon, setSelectedIcon] = useState<string>(() => nextAvailableIcon(usedIcons))
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -59,16 +61,20 @@ export function CreateGroupModal({ onClose, onConfirm, title = 'New Group' }: Pr
             <div className="grid grid-cols-8 gap-1">
               {CUSTOM_ICON_NAMES.map((iconName) => {
                 const Icon = ICON_MAP[iconName]
+                const isTaken = usedIcons.includes(iconName) && iconName !== selectedIcon
                 return (
                   <button
                     key={iconName}
                     type="button"
-                    title={iconName}
+                    title={isTaken ? `${iconName} (already used)` : iconName}
                     onClick={() => setSelectedIcon(iconName)}
+                    disabled={isTaken}
                     className={`flex items-center justify-center p-2 rounded-lg transition-colors min-h-[40px] ${
                       selectedIcon === iconName
                         ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
-                        : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-400'
+                        : isTaken
+                          ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                          : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-400'
                     }`}
                   >
                     {Icon && <Icon size={18} />}

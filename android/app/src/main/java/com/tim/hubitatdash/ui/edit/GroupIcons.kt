@@ -57,3 +57,16 @@ fun iconForName(name: String): ImageVector = when (name) {
     else -> Icons.Default.Category
 }
 
+/** All icon names available for custom groups, in display order. */
+val GROUP_ICON_NAMES = listOf(
+    "home", "air", "security", "bedtime", "directions_walk", "fence",
+    "emergency", "videocam", "sensor_door", "schedule", "bolt",
+    "settings_applications", "star", "doorbell", "lightbulb", "lock",
+    "water_drop", "electric_bolt", "thermostat", "people", "badge",
+    "category", "garage", "yard"
+)
+
+/** Returns the first icon name not already used by another group, or the first if all are used. */
+fun nextAvailableIcon(used: List<String>): String =
+    GROUP_ICON_NAMES.firstOrNull { it !in used } ?: GROUP_ICON_NAMES.first()
+

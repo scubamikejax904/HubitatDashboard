@@ -130,6 +130,13 @@ class GroupRepository @Inject constructor(
         saveAll()
     }
 
+    fun setGroupIcon(groupId: String, iconName: String) {
+        _customGroups.value = _customGroups.value.map {
+            if (it.id == groupId) it.copy(iconName = iconName) else it
+        }
+        saveAll()
+    }
+
     fun addDeviceToGroup(groupId: String, deviceId: String) {
         val current = _groupAdditions.value.toMutableMap()
         val existing = current[groupId] ?: emptyList()

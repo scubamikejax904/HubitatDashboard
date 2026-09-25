@@ -405,6 +405,7 @@ export function Sidebar() {
         <CreateGroupModal
           onClose={() => setShowModal(false)}
           onConfirm={handleCreate}
+          usedIcons={customGroups.map((g) => g.iconName)}
         />
       )}
 

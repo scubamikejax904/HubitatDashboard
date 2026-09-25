@@ -39,23 +39,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.tim.hubitatdash.data.model.GroupConfig
 
-private val iconNames = listOf(
-    "home", "air", "security", "bedtime", "directions_walk", "fence",
-    "emergency", "videocam", "sensor_door", "schedule", "bolt",
-    "settings_applications", "star", "doorbell", "lightbulb", "lock",
-    "water_drop", "electric_bolt", "thermostat", "people", "badge",
-    "category", "garage", "yard"
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateGroupSheet(
     existingGroups: List<GroupConfig>,
+    usedIcons: List<String> = emptyList(),
     onDismiss: () -> Unit,
     onConfirm: (name: String, iconName: String, parentId: String?) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
-    var selectedIcon by remember { mutableStateOf("home") }
+    var selectedIcon by remember { mutableStateOf(nextAvailableIcon(usedIcons)) }
     var selectedParentId by remember { mutableStateOf<String?>(null) }
     var dropdownExpanded by remember { mutableStateOf(false) }
 
@@ -89,8 +82,9 @@ fun CreateGroupSheet(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                items(iconNames) { iconName ->
+                items(GROUP_ICON_NAMES) { iconName ->
                     val isSelected = iconName == selectedIcon
+                    val isTaken = iconName in usedIcons && !isSelected
                     Box(
                         modifier = Modifier
                             .size(44.dp)
@@ -101,14 +95,17 @@ fun CreateGroupSheet(
                                     MaterialTheme.shapes.small
                                 ) else Modifier
                             )
-                            .clickable { selectedIcon = iconName },
+                            .clickable(enabled = !isTaken) { selectedIcon = iconName },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = iconForName(iconName),
                             contentDescription = iconName,
-                            tint = if (isSelected) MaterialTheme.colorScheme.primary
-                                   else MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = when {
+                                isSelected -> MaterialTheme.colorScheme.primary
+                                isTaken -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            }
                         )
                     }
                 }

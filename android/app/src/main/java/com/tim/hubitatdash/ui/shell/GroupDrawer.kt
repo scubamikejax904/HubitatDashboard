@@ -109,6 +109,7 @@ fun GroupDrawer(
     if (showCreateSheet) {
         CreateGroupSheet(
             existingGroups = resolvedGroups,
+            usedIcons = customGroups.map { it.iconName },
             onDismiss = { showCreateSheet = false },
             onConfirm = { name, iconName, parentId ->
                 groupEditViewModel.addCustomGroup(name, iconName, parentId)

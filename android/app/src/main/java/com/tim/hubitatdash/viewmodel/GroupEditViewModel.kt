@@ -60,6 +60,8 @@ class GroupEditViewModel @Inject constructor(
 
     fun removeCustomGroup(id: String) = groupRepository.removeCustomGroup(id)
 
+    fun setGroupIcon(groupId: String, iconName: String) = groupRepository.setGroupIcon(groupId, iconName)
+
     fun addDeviceToGroup(groupId: String, deviceId: String, label: String, tileType: TileType) {
         groupRepository.addDeviceToGroup(groupId, deviceId)
         val device = deviceRepository.devices.value[deviceId]
