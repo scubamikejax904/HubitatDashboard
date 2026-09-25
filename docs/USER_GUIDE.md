@@ -18,6 +18,7 @@
    - [Install Node.js](#31-install-nodejs)
    - [Get the Dashboard Files](#32-get-the-dashboard-files)
    - [Configure the Backend](#33-configure-the-backend)
+   - [Set a Control PIN](#33a--set-a-control-pin)
    - [Start the Dashboard](#34-start-the-dashboard)
    - [Stop the Dashboard](#35-stop-the-dashboard)
    - [Security Warning — Local Use Only](#36-security-warning--local-use-only)
@@ -37,6 +38,7 @@
    - [Step 3 — Download to Your Phone](#73-step-3--download-to-your-phone)
    - [Step 4 — Install with the Files App](#74-step-4--install-with-the-files-app)
    - [Updating the App Later](#75-updating-the-app-later)
+   - [Build the APK Yourself (optional)](#76-build-the-apk-yourself-optional--for-the-developer-minded)
 8. [Android App — First-Time Setup](#8-android-app--first-time-setup)
 9. [Android App — Building Your Dashboard](#9-android-app--building-your-dashboard)
    - [Creating a Custom Group](#91-creating-a-custom-group)
@@ -44,7 +46,7 @@
    - [Subgroups](#93-subgroups)
    - [Rearranging and Removing Tiles](#94-rearranging-and-removing-tiles)
 10. [Understanding Tile Types](#10-understanding-tile-types)
-11. [Android App — GPS Tracking Setup](#11-android-app--gps-tracking-setup)
+11. [GPS Tracking — Show Where Your Phones Are on a Map](#11-gps-tracking--show-where-your-phones-are-on-a-map)
 12. [Syncing Between Web and Android](#12-syncing-between-web-and-android)
 13. [Troubleshooting](#13-troubleshooting)
 
@@ -55,15 +57,16 @@
 Hubitat Dashboard is a custom control panel for your **Hubitat Elevation** smart home hub.
 It shows your devices as tiles — small buttons or status displays — organized into groups that you define.
 
-- The **web app** runs on a Windows PC on your home network and is viewed in any browser.
+- The **web app** runs on a computer on your home network — **Windows, Linux, or macOS** — and is viewed in any browser.
 - The **Android app** runs on your phone or tablet and connects to your hub directly.
 
 Both apps let you:
 - See the live status of every device on your hub (switches, sensors, locks, lights, etc.)
 - Control devices by tapping their tiles
-- Organize devices into named groups and subgroups that make sense for *your* home
+- Organize devices into named groups and subgroups that make sense for *your* home, each with a custom icon
 - View hub variables (custom data values your hub tracks, like sunrise/sunset times)
 - View and control the Hub Security Manager (HSM) and hub mode
+- See where your phones are on a live **GPS map**, and generate AI **trip summaries** of a day's route (web app)
 
 Neither app requires any paid subscription or cloud service. Everything runs on your local home network.
 
@@ -166,7 +169,7 @@ The backend is the part of the web app that talks to your hub. It needs to know 
 3. **Copy** that file (right-click → Copy) and **paste** it in the same folder.
 4. **Rename** the copy to `config.json` (right-click → Rename).
 5. Right-click `config.json` and open it with **Notepad** (or any text editor).
-6. The file will look like this:
+6. The file will look like this (this matches `config.json.example`):
    ```json
    {
      "hubIP": "192.168.1.xxx",
@@ -176,7 +179,12 @@ The backend is the part of the web app that talks to your hub. It needs to know 
      "pinHash": "$2b$10$...",
      "postUrl": "http://<THIS_SERVER_IP>:3001/api/webhook",
      "hubUsername": "",
-     "hubPassword": ""
+     "hubPassword": "",
+     "databaseUrl": "mysql://USER:PASS@localhost:3306/hubitat_dashboard",
+     "gpsMap": { "csvUrl": "https://docs.google.com/spreadsheets/d/.../export?format=csv&gid=0" },
+     "home": { "label": "Home", "address": "123 Main St", "lat": 12.3456, "long": -78.9012, "radiusM": 250 },
+     "ollama": { "enabled": false, "baseUrl": "http://192.168.1.5:11434", "model": "qwen3.8:27b" },
+     "openrouter": { "enabled": false, "model": "deepseek/deepseek-v4-flash", "timeoutMs": 60000, "apiKey": "" }
    }
    ```
 7. Replace the placeholder values with the details you wrote down in [Section 2.4](#24-find-your-connection-details):
@@ -184,8 +192,14 @@ The backend is the part of the web app that talks to your hub. It needs to know 
    - Change `123` to your Maker App ID.
    - Change the `accessToken` value to your Access Token.
    - Replace `<THIS_SERVER_IP>` in the `postUrl` with the IP address of **the Windows computer** that will run the dashboard (not the hub). You can find your PC's IP address by opening Command Prompt and typing `ipconfig` — look for the line that says "IPv4 Address".
-   - Leave `pinHash`, `hubUsername`, and `hubPassword` as-is for now (or delete the pinHash line if you don't want PIN protection).
-8. Save the file (Ctrl+S) and close Notepad.
+8. `pinHash` — leave it alone for now, or **remove the whole line** to turn off PIN protection. To actually set a PIN for sensitive controls, see [Section 3.3a — Set a Control PIN](#33a--set-a-control-pin) below.
+9. The remaining fields are **all optional** and can be left exactly as-is on first setup:
+   - `hubUsername` / `hubPassword` — only if your hub has Hub Security (login) enabled. Otherwise keep them blank.
+   - `databaseUrl` — only if you want group config persisted to a MySQL database. If you're not using MySQL, you can **delete this line**.
+   - `gpsMap` — URL of your public GPS Google Sheet. Needed only for the GPS map (see [Section 11](#11-gps-tracking--show-where-your-phones-are-on-a-map)).
+   - `home` — your home's address/coordinates, used to label GPS stops. Optional.
+   - `ollama` / `openrouter` — AI providers for GPS trip summaries (see [Section 11.6](#116-gps-ai-trip-summary-the-report-button)).
+10. Save the file (Ctrl+S) and close Notepad.
 
 **Example of a filled-in config.json:**
 ```json
@@ -194,11 +208,30 @@ The backend is the part of the web app that talks to your hub. It needs to know 
   "makerAppId": "155",
   "accessToken": "a1b2c3d4-1234-5678-abcd-ef0123456789",
   "backendPort": 3001,
+  "pinHash": "$2b$10$EjuBHH7i/mWZQbN70XMxt.2PW2e/ZovBq7imA/cRwDycOp95CZjVq",
   "postUrl": "http://192.168.1.100:3001/api/webhook",
   "hubUsername": "",
-  "hubPassword": ""
+  "hubPassword": "",
+  "databaseUrl": "mysql://bh:password@127.0.0.1:3306/hubitat_dashboard",
+  "gpsMap": { "csvUrl": "https://docs.google.com/spreadsheets/d/1EGNmf9XvinmTE5EGZUOBjaoeU1HIvBLHlz33TN0KfcU/export?format=csv&gid=0" },
+  "home": { "label": "Home", "address": "135 Cassady Street, Umatilla, FL", "lat": 28.9263, "long": -81.6646, "radiusM": 250 },
+  "ollama": { "enabled": true, "baseUrl": "http://192.168.1.5:11434", "model": "qwen3.8:27b" },
+  "openrouter": { "enabled": true, "model": "deepseek/deepseek-v4-flash", "timeoutMs": 60000, "apiKey": "" }
 }
 ```
+> The `openrouter.apiKey` value can be left blank if you instead set the `OPENROUTER_API_KEY` environment variable when starting the backend (recommended so the key is never in the file).
+
+### 3.3a — Set a Control PIN *(optional)*
+A 4-digit PIN can protect sensitive actions (arming/disarming security, locking, changing hub mode). To enable it, generate a bcrypt hash of your chosen PIN and paste it as `pinHash`:
+1. The dashboard requires **Node.js** (installed in the next section) to generate the hash. In a Command Prompt/PowerShell window, in the dashboard folder, run:
+   ```
+   node -e "require('bcryptjs').hash('1234',10).then(console.log)"
+   ```
+   (Replace `1234` with the PIN you want.)
+2. Copy the long `$2...` string it prints and paste it as the `pinHash` value in `config.json`.
+3. Save the file and restart the dashboard.
+
+To disable PIN protection, just remove the `pinHash` line entirely.
 
 #### Set up the Webhook (Optional but recommended for live updates)
 
@@ -211,9 +244,9 @@ The webhook allows your hub to push device state changes to the dashboard instan
    For example: `http://192.168.1.100:3001/api/webhook`
 5. Click **Update** or **Done**.
 
-### 3.4 Install Dependencies and Start the Dashboard
+### 3.4 Install Dependencies and Start the Dashboard — Option A: `npm run dev` *(Windows / macOS / Linux)*
 
-You only need to do the "install" step once. After that, use `start.ps1` every time.
+You only need to do the one-time "install" step once. After that, start the dashboard with `npm run dev`.
 
 **First-time install:**
 1. Press **Windows key + X** and choose **Windows PowerShell** (or **Terminal**).
@@ -222,40 +255,58 @@ You only need to do the "install" step once. After that, use `start.ps1` every t
    cd C:\HubitatDashboard
    ```
    and pressing Enter.
-3. Type the following and press Enter. This downloads the software libraries the app needs:
+3. Type the following and press Enter. This downloads the software libraries the app needs (this installs both the backend and frontend in one go):
    ```powershell
    npm install
    ```
    This may take a minute or two. You will see a lot of text scroll by — that is normal. Wait for it to finish.
 
 **Starting the dashboard (every time):**
-1. Open PowerShell (as above).
-2. Navigate to the dashboard folder:
+1. Open PowerShell (as above) and navigate to the dashboard folder:
    ```powershell
    cd C:\HubitatDashboard
    ```
-3. Type and press Enter:
+2. Type and press Enter:
    ```powershell
-   .\start.ps1
+   npm run dev
    ```
-   > If you get a message about "execution policy", type the following first, press Enter, type `Y` when asked, then try `.\start.ps1` again:
-   > ```powershell
-   > Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
-   > ```
-4. Two new windows will open — one for the backend, one for the frontend. Leave them open.
-5. Open your web browser and go to: **http://localhost:5173**
-6. The dashboard will appear. 🎉
+3. This starts both the **backend** (http://localhost:3001) and the **frontend** dev server. You will see log lines for both in the same window.
+4. Leave that window open. Open your web browser and go to: **http://localhost:5173**
+5. The dashboard will appear. 🎉
+
+> **Note:** It can take a few seconds for both services to come up. If you see the page immediately but the sidebar looks empty, wait a moment and refresh.
+
+### 3.4b Start the Dashboard — Option B: `start` / `stop` shell scripts
+
+The project also ships `start` and `stop` shell scripts that run both services in the background and write logs to `.dashboard-backend.log` / `.dashboard-frontend.log`. These work from **Git Bash** or **WSL** on Windows, and natively on macOS/Linux:
+
+```bash
+cd C:/HubitatDashboard        # or wherever you extracted the files
+./start                        # starts backend (3001) + frontend (5173)
+# open http://localhost:5173
+./stop                         # stops both
+```
+
+If either port (3001 or 5173) is already in use, `./start` will refuse to run — run `./stop` first, or free the port.
+
+### 3.4c Start the Dashboard — Option C: Docker *(Raspberry Pi / NAS / server)*
+
+If you prefer containers, a `docker-compose.yml` is included (backend on :3001, frontend web server on port 80):
+
+```bash
+cp backend/config.json.example backend/config.json
+# edit backend/config.json with your hub details
+docker-compose up -d
+# → dashboard at http://<server-ip>   (frontend served on port 80)
+```
+
+> The Docker path serves the built web app on port 80. The `npm run dev` and `./start` paths use the Vite dev server on port 5173. Use whichever fits your machine — the dashboard is identical.
 
 ### 3.5 Stop the Dashboard
 
-1. Open PowerShell in the dashboard folder (as above).
-2. Type and press Enter:
-   ```powershell
-   .\stop.ps1
-   ```
-3. Both service windows will close.
-
-Alternatively, just close both PowerShell windows that opened when you ran `start.ps1`.
+- **If started with `npm run dev`:** press **Ctrl + C** in the same PowerShell window, then close it.
+- **If started with `./start`:** run `./stop` in the dashboard folder, or close both service windows.
+- **If started with Docker:** run `docker-compose down` in the dashboard folder.
 
 ### 3.6 Security Warning — Local Use Only
 
@@ -429,6 +480,36 @@ When a new version of the APK is available:
 3. Tap the APK in the Files app and tap **Install** — it will update the existing app.
 4. All your group configuration and settings are preserved.
 
+### 7.6 Build the APK Yourself *(optional — for the developer-minded)*
+
+If you don't have a prebuilt APK — or you want the very latest build — you can build it yourself using the same process the maintainers use.
+
+**Prerequisites (one-time):**
+- **JDK 17** (Java 17). Download from [adoptium.net](https://adoptium.net) (Temurin 17) or install via your package manager.
+- **Android SDK** command-line tools (or [Android Studio](https://developer.android.com/studio)). The build looks for the Android SDK at `/opt/android-sdk` by default; if yours is elsewhere, set the `ANDROID_HOME` (or `ANDROID_SDK_ROOT`) environment variable to its location.
+
+**Steps:**
+1. Open a terminal — **Git Bash** or **WSL** on Windows, **Terminal** on macOS/Linux — and go into the `android` folder:
+   ```bash
+   cd C:/HubitatDashboard/android      # Git Bash: cd /c/HubitatDashboard/android
+   ```
+2. Build the debug APK:
+   ```bash
+   bash gradlew assembleDebug
+   ```
+   > Use `bash gradlew` — the `gradlew` file here is a plain shell script, not the usual binary wrapper, so `./gradlew` may not work even after `chmod +x`.
+3. When it finishes, the APK is at:
+   ```
+   android/app/build/outputs/apk/debug/app-debug.apk
+   ```
+4. **Every successful build is assigned a new version automatically** (`1.0.1`, `1.0.2`, …) so your phone sees each rebuild as an upgrade. Install the newest APK to get the latest.
+5. Transfer the APK to your phone (Steps 2–4 above), or if the phone is connected via USB with developer tools, install it with `adb`:
+   ```bash
+   adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+   ```
+
+> **Tip — if a fresh build won't replace an installed one:** the counter restarts at `1.0.1` if the build-number cache is ever deleted. Android treats an equal `versionCode` as a reinstall (data preserved) and only forces an *upgrade* when the number rises. If you need to force an upgrade over an already-installed build, bump the version first.
+
 ---
 
 ## 8. Android App — First-Time Setup
@@ -443,6 +524,9 @@ Fill in the following fields:
 | **Maker App ID** | The App ID from the Maker API settings page | e.g., `155` |
 | **Access Token** | The Access Token from the Maker API settings page | The long string of letters, numbers, and dashes |
 | **Cloud Hub ID** | *(Optional)* Your hub's cloud ID, for away-from-home access | Found on Maker API page under "Cloud Access" |
+| **Control PIN** *(optional)* | A 4-digit PIN that protects security, hub-mode, and lock actions | Enter it here once; you'll be asked for it when you arm/disarm security, change mode, or unlock. To change or clear it later, return here. |
+| **GPS Apps Script URL** *(optional)* | Where the app posts your location for the GPS map | Your own Google Apps Script endpoint — see [Section 11](#11-gps-tracking--show-where-your-phones-are-on-a-map) |
+| **GPS Device Name** *(optional)* | A name that tags your location in the log (e.g. "My Phone") | Whatever you like — it appears as the device filter on the GPS map |
 
 **Connection Mode:**
 - **Local** — Connect to your hub only on your home Wi-Fi. Use this if you only want to control your home when you're at home.
@@ -536,6 +620,8 @@ When you add a device, the app automatically picks the best tile type for it bas
 | **Button** | Button device | Tap to push the button |
 | **Power Meter** | Current wattage | Display only |
 | **Connector** | Virtual on/off switch | Tap to toggle — used for virtual switches that trigger automations |
+| **Waterison** | A water/valve tile with a live countdown while a timer is running (from the `WaterTimeout` hub variable) | Display only — shows the remaining time and updates live |
+| **Multi-Device** | One tile that packs several devices together, each with its own cell and toggle | Tap each cell to control that device in place |
 | **Ring Detection** | Ring camera motion/ring event | Display only — shows last detection event |
 | **Hub Mode** | Current hub mode (Home, Away, Night, etc.) | Tap to change mode |
 | **HSM** | Security system arm status | Tap to arm/disarm (may require PIN) |
@@ -545,14 +631,90 @@ When you add a device, the app automatically picks the best tile type for it bas
 
 ---
 
-## 11. Android App — GPS Tracking Setup
+## 11. GPS Tracking — Show Where Your Phones Are on a Map
 
-The Android app can display your real-time location on a map. This feature pulls data from a public Google Sheet.
+The dashboard can show a live map of where your Android phones are. This is a three-part pipeline, and each part must be in place for it to work:
 
-1. Ensure your GPS tracking source is logging coordinates to a Google Sheet.
-2. The sheet must be "Published to the web" (File > Share > Publish to web).
-3. The backend is already configured with the required sheet ID, but you should ensure your log format contains columns labeled "timestamp", "lat", and "long".
-4. In the Android app, access the GPS map from the main navigation menu to view your location.
+1. **Each Android phone** runs the dashboard's built-in GPS tracker, which posts its location to a **Google Sheet**.
+2. The **web dashboard** (and the Android app) read that sheet once it's **published to the web**.
+3. The map is drawn from the sheet's rows. Optionally, an **AI trip summary** narrates a day's route.
+
+```
+Android phone (GPS tracker) → Google Apps Script → Google Sheet → published CSV → dashboard map
+```
+
+### 11.1 One-time: create the Google Sheet
+
+1. Create a new Google Sheet ([sheets.new](https://sheets.new)).
+2. Put a header row in the **first row** with a `timestamp` column, a latitude column, and a longitude column:
+   - Latitude: header `lat` (the app also accepts `latitude`).
+   - Longitude: header `long` (also accepts `longitude`, `lon`, or `lng`).
+   - *(Optional)* a `name` column tags each point with a phone name — this is what drives the **phone filter** dropdown on the map. If you omit it, every point shows under one device.
+3. **Publish it to the web:** File → **Share** → **Publish to web** → click **Publish**. (Set it to "Anyone with the link" so the dashboard and phones can both read it.)
+4. Copy the **CSV export URL**: it's the spreadsheet link with `/export?format=csv&gid=0` appended, e.g.:
+   ```
+   https://docs.google.com/spreadsheets/d/1EGNmf9XvinmTE5EGZUOBjaoeU1HIvBLHlz33TN0KfcU/export?format=csv&gid=0
+   ```
+
+### 11.2 One-time: create the Google Apps Script "receiver"
+
+Phones need a way to *write* to the sheet. The usual approach is a small Google Apps Script web app:
+
+1. In the same spreadsheet, open **Extensions → Apps Script**.
+2. Add a `doPost(e)` function that parses the incoming `lat`/`long`/timestamp/`name` and appends a row to the sheet.
+3. **Deploy → New deployment → Web app**, set access to **"Anyone"** (or your domain), and copy the `/exec` URL.
+4. That `/exec` URL is what you'll put in the Android app as **GPS Apps Script URL**.
+
+> The dashboard itself only ever *reads* the sheet (via the CSV export URL). The Apps Script receiver is the *write* side that the phones talk to.
+
+### 11.3 Configure the web backend
+
+In `backend/config.json` (see [Section 3.3](#33-configure-the-backend)):
+
+- **`gpsMap.csvUrl`** — paste your sheet's CSV export URL from 11.1.
+- **`home`** *(optional)* — your home's `label`, `address`, `lat`/`long`, and `radiusM`. Any GPS stop within that radius is labeled **"Home"** and is excluded from business lookup in trip summaries.
+
+### 11.4 Turn on tracking on each Android phone
+
+On each phone that should be tracked, in the app's **Settings**:
+
+1. **Grant background location permission.** On Android, the app needs location access **"Allow all the time"** (Settings → Privacy → Location → the location toggle → *Allow all the time*). If it only has "While using the app", the tracker goes silent in the background.
+2. Set **GPS Apps Script URL** to your Apps Script `/exec` URL (from 11.2).
+3. Set **GPS Device Name** (e.g. `My Phone`).
+4. Save, then tap the **GPS test / "Test Now"** button to send a single point immediately and confirm the whole pipeline works.
+
+> New phones are extra-prone to this: OEM battery optimizations sometimes kill background location services. If a phone simply stops appearing, re-check the permission above, then test.
+
+### 11.5 View the map
+
+- **Web:** open the **GPS Track** page (in the sidebar). The map defaults to **today** and shows only phones that have points in the selected range. Use the controls to:
+  - filter by **phone** (only phones with points in the date range are listed),
+  - change the **date range**,
+  - toggle **fullscreen**, and
+  - (optionally) enable **road distance** via OSRM for driving-distance legs.
+- **Android:** open **GPS** from the main navigation menu for the same map on your phone.
+
+### 11.6 GPS AI Trip Summary (the "Report" button)
+
+On the GPS Track page, the **Report** (green) button turns the currently-filtered route into a short, human-readable trip summary — naming the businesses and addresses you stopped at, how long you stayed, and travel time between stops.
+
+- If both AI providers are configured, a dropdown lets you pick the backend:
+  | Provider | Where it runs | Privacy |
+  |---|---|---|
+  | **Local AI (Ollama)** | on your LAN | coordinates never leave your network |
+  | **Cloud (OpenRouter)** | openrouter.ai | sends coordinates/timestamps to the cloud |
+- The providers are configured in `backend/config.json` as the **`ollama`** and **`openrouter`** blocks (both optional; if neither is present the Report feature is hidden).
+- Stops are detected automatically server-side; each stop is named via **OpenStreetMap / Overpass** (nearest business or street address). With the `home` block set, trips stopping at home are labeled "Home — <address>" instead of a nearby business.
+
+### 11.7 GPS Troubleshooting
+
+| Symptom | Likely cause / fix |
+|---|---|
+| No points on the map | Phone lacks background location permission — set **"Allow all the time"** (11.4). Then use **Test Now** to confirm. |
+| Sheet isn't growing | GPS Apps Script URL is wrong or the script isn't deployed as a web app with append logic. Check the script's Execution log. |
+| Map empty for a day that should have points | Date range isn't covering it (it defaults to *today*), or the phone filter is set to another device. |
+| "Phone not in the dropdown" | That phone has no points **in the selected date range** — widen the range. |
+| Tracker stops after a phone restart/app update | The tracker re-asserts itself on launch **only when GPS tracking is enabled and configured** — re-open Settings to make sure the URL + name are saved. |
 
 ---
 
@@ -606,13 +768,24 @@ Both apps support pushing and pulling the config file directly through the Hubit
 - Make sure Node.js is installed (type `node --version` in PowerShell).
 - Make sure you ran `npm install` in the `C:\HubitatDashboard` folder at least once.
 - Check that `backend/config.json` exists and has your hub IP and access token filled in.
-- Make sure nothing else is using ports 3001 or 5173. Run `stop.ps1` first if you're unsure.
+- Make sure nothing else is using ports 3001 or 5173. Run `./stop` first if you're unsure (or stop any leftover `npm run dev` with Ctrl+C).
 
 ### "The Android app says 'Connection failed' or 'Unable to reach hub'"
 - Make sure your phone is on the same Wi-Fi network as your hub (for Local mode).
 - Double-check the Hub IP and Access Token.
 - Try tapping **Test Connection** in Settings.
 - If you want to use the app away from home, make sure "Allow Access via Cloud" is enabled in the Maker API and enter your Cloud Hub ID in Settings.
+
+### "Android flags my install as 'unrecognized developer' / Play Protect blocks it"
+Debug APKs are signed with a local debug key that Google Play Protect has never seen, so it can warn even when the file installs fine elsewhere.
+- Easiest personal fix: **Play Store → Profile → Play Protect → Settings → turn OFF "Scan apps with Play Protect"**, then install.
+- Or, on the warning dialog tap **More details → Install anyway** (this whitelists the signing key for future updates too).
+
+### "Mode / Security / hub-variables tiles are empty on the Android app, especially on Cloud"
+On a fresh **Cloud** connection the app must fetch the mode, HSM, and hub-variable values separately — they don't arrive with the device list. Open the group page once on the Cloud connection (or tap refresh in the app) so those special tiles load. If they stay empty, re-check that those hub variables are authorized in the Maker API ([Section 2.3](#23-authorize-hub-variables)).
+
+### "The GPS map is empty / a phone is missing" *(Android)*
+See [Section 11.7](#117-gps-troubleshooting) — the usual culprit is background location permission not set to **"Allow all the time"**, or the date/phone filter hiding the points.
 
 ---
 

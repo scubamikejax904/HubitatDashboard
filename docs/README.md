@@ -4,8 +4,9 @@ A local web-based dashboard for Hubitat Elevation home automation. Controls swit
 
 ## Features
 
-- **14 device groups** matching your automation apps (Environment, Security, Lights, etc.)
+- **Unlimited custom groups & subgroups** you define, each with its own icon
 - **Real-time updates** via Server-Sent Events from Hubitat Maker API webhooks
+- **Live GPS map** + AI **trip summaries** of where your phones have been
 - **PIN-protected** security actions (HSM arm/disarm, lock control, mode changes)
 - **Dark mode** with system preference detection
 - **Responsive** — works on phone, tablet, and desktop
@@ -34,14 +35,18 @@ Edit `backend/config.json`:
 
 ```json
 {
-  "hubIp": "192.168.1.x",
-  "makerToken": "your-maker-api-token",
+  "hubIP": "192.168.1.x",
   "makerAppId": "123",
+  "accessToken": "your-maker-api-token",
   "backendPort": 3001,
-  "pinHash": "$2a$10$...",
-  "corsOrigin": "http://localhost:5173"
+  "pinHash": "$2b$10$...",
+  "postUrl": "http://<YOUR_SERVER_IP>:3001/api/webhook",
+  "gpsMap": { "csvUrl": "https://docs.google.com/spreadsheets/d/.../export?format=csv&gid=0" }
 }
 ```
+
+`hubIP` / `makerAppId` / `accessToken` come from your Hubitat Maker API settings.
+The other keys are optional — see `docs/USER_GUIDE.md` §3.3 for every field.
 
 ### 3. Generate a PIN hash
 
@@ -83,19 +88,20 @@ Dashboard available at **http://localhost** (port 80).
 ## Project Structure
 
 ```
-├── backend/          # Fastify API server
+├── backend/          # Fastify API server (tsx)
 │   ├── src/
-│   │   ├── server.ts     # Entry point
-│   │   ├── proxy.ts      # Maker API proxy routes
-│   │   ├── webhook.ts    # SSE + webhook handler
-│   │   └── cache.ts      # In-memory device cache
-│   └── config.json       # Local config (gitignored)
-├── frontend/         # React + Vite + Tailwind
-│   ├── src/
-│   │   ├── components/   # Sidebar, SystemBar, tiles
-│   │   ├── config/       # groups.ts device mapping
-│   │   ├── hooks/        # useSSE, useCommand
-│   │   └── store/        # Zustand device store
+│   │   ├── server.ts      # Entry point
+│   │   ├── proxy.ts       # Maker API proxy routes
+│   │   ├── webhook.ts     # SSE + webhook handler
+│   │   ├── gpsService.ts  # GPS CSV parsing + map data
+│   │   └── aiProviders.ts # Ollama / OpenRouter trip summaries
+│   └── config.json        # Local config (gitignored)
+├── frontend/         # React + TypeScript + Vite
+│   └── src/
+│       ├── components/    # GroupPage, tiles/*, GpsMapPage, Sidebar
+│       ├── store/         # Zustand: groupStore.ts, deviceStore.ts
+│       └── App.tsx        # Routing
+├── android/          # Kotlin + Compose app (bash gradlew assembleDebug)
 └── docker-compose.yml
 ```
 
